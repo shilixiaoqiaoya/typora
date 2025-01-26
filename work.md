@@ -75,10 +75,13 @@ router.beforeEach((to, from, next) => {
 
 
 
-### pointer事件
+
+
+### ？？pointer事件
 
 - touch-action: none
   - 用于防止触摸事件的默认行为，以实现自定义的复杂的交互效果
+- 如何实现类似知乎的图片预览效果
 
 
 
