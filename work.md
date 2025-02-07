@@ -1,4 +1,14 @@
+- 代码逻辑没问题就检查写法
+- localhost对应127.0.0.1
+
+
+
+
+
 # Vue
+
+- template是数据驱动
+- script需要通过computed和watch来监听数据变化，实现数据驱动
 
 ### router
 
@@ -66,28 +76,27 @@ router.beforeEach((to, from, next) => {
 
 
 
-### v-if、v-show、visibility
+### ？v-if、v-show、visibility
 
 -  **一开始`display: none`， 在mounted里面，`element.offsetWidth`  `dom.getBoundingClientRect()` 都为 0**
 - **改为 `visibility: hidden` ，元素不可见，但仍然占据空间，mounted里面可以获取正确尺寸**
 
+- 如果在mounted里拿不到dom，可能是它或它的父元素设置了v-if，需改为v-show
+- v-if 搭配template使用更佳
+- echarts图形成功绘制需要初始化+塞值
 
 
 
 
 
+### reactive
 
-### ？？pointer事件
-
-- touch-action: none
-  - 用于防止触摸事件的默认行为，以实现自定义的复杂的交互效果
-- 如何实现类似知乎的图片预览效果
+- 使用reactive对深层对象reportData进行初始化  
+- 通过接口获取数据：**Object.assign(reportData, res.data)**
 
 
 
 
-
-# Javascript
 
 ### 输入事件
 
@@ -98,13 +107,51 @@ router.beforeEach((to, from, next) => {
 
 
 
-### img
-
-- onload事件，图片从无到有全部展示
 
 
+### 环境变量
+
+- 前端项目的环境变量是用于配置前端应用行为的变量，**通常在开发、测试和生产环境中使用，以区分不同的配置（如API地址**
+  - 区分环境：NODE_ENV=development  NODE_ENV=production
+  - 在不同的环境中使用不同的后端服务地址
+- 为什么需要环境变量
+  - 环境隔离。不同环境需要不同配置，环境变量可以轻松切换配置，无需修改代码
+  - 安全性。敏感信息不应该硬编码在代码中，将信息和代码分离，降低泄漏风险
+- 安全性问题
+  - 在使用webpack等工具进行打包时，环境变量会被注入到代码中，有暴露风险
+  - 应该将敏感信息保留在后端，并通过安全的API提供服务
+- **【修改环境变量之后需要重启项目】**
 
 
+
+### 给props赋默认值
+
+```js
+const props = withDefaults(defineProps<{
+    selectedSession: ISession[];
+    clearSelectedSession: () => void
+	}>(), 
+  {
+  	selectedSession: () => ([])
+	}
+)
+```
+
+
+
+
+
+### ? pointer事件
+
+- touch-action: none
+  - 用于防止触摸事件的默认行为，以实现自定义的复杂的交互效果
+- 如何实现类似知乎的图片预览效果
+
+
+
+
+
+# Javascript
 
 ### Array
 
@@ -127,6 +174,41 @@ console.log(arr.at(5))  // undefined
 
 - if ( [ ] )  为true
 - if ( { } )  为true
+
+
+
+##### foreach不能中断
+
+- 无法通过break和return跳出循环
+
+```js
+function bar() {
+  [1,2,3].forEach(item => {
+    console.log(item)
+    if(item === 2) return
+  })
+  console.log('end')
+}
+bar()
+// 1 2 3 end
+```
+
+
+
+
+
+
+
+
+
+### 字符串
+
+##### subString
+
+- 返回该字符串从起始索引到结束索引（不包括）的部分
+- 不影响原数组，类似数组的slice方法
+
+
 
 
 
@@ -292,6 +374,83 @@ if(index > curQuelist.value.length - 5) {
 
 
 
+### 常用api
+
+##### img.onload()
+
+- 监听图片从无到有全部展示
+
+
+
+##### container.scrollTo(0, 0)
+
+- 将容器的滚动条移动到容器的顶部
+- 第一个参数是水平滚动的位置，第二个参数是垂直滚动的位置
+- window.scrollTo(0, 0)
+
+
+
+##### lastElementChild
+
+- 返回文档的最后一个子元素，若不存在则返回null
+
+
+
+##### 解构赋值起别名
+
+```js
+const { user: applyUser } = gitlabData
+```
+
+
+
+
+
+##### 新人引导是否展示实现
+
+- 存localStorage一个数组，判断数组是否包含用户id
+- 若没有，则展示气泡，并且将该用户id也push到数组中
+
+
+
+##### regex.test(string) 
+
+- 返回值是布尔值，看某个字符串是否满足正则表达式
+
+
+
+##### URLSearchParams()
+
+- 用于处理URL中的query string
+
+```js
+const params = new URLSearchParams('q=javascript&page=2');
+console.log(params.get('q')); // 输出: javascript
+console.log(params.get('page')); // 输出: 2
+console.log(params.get('unknown')); // 输出: null（如果参数不存在）
+```
+
+
+
+
+
+### 截图
+
+##### html2canvas
+
+- 耗时短，ios/安卓兼容性好
+- 支持截取脱离标准流的元素
+- 部分css属性不支持，比如波浪线和虚线
+- useCORS设为true，可以通过http请求获取图片
+- Scale
+
+
+
+##### dom2image
+
+- 耗时长，ios/安卓兼容性差
+- 脱离标准流的元素只能截取可视区域内的
+- 支持波浪线和虚线
 
 
 
@@ -301,6 +460,399 @@ if(index > curQuelist.value.length - 5) {
 
 
 
+### 基本函数
+
+##### 递归检查对象是否存在空属性值
+
+```js
+const checkAllFilledMethod = (obj: any) => {
+  for(let key in obj) {
+    if(typeof obj[key] === 'object' && obj[key] !== null) {
+      if('isShow' in obj[key]) {
+        if(obj[key]['isShow']) {
+          if(!checkAllFilledMethod(obj[key])) return false
+        }
+      } else {
+        if(!checkAllFilledMethod(obj[key])) return false
+      }
+    } else {
+      if(key === 'attitude' || key === 'content') continue
+      if(obj[key] === '') return false
+    }
+  }
+}
+```
+
+
+
+##### 隔2s递归获取progress直至100拿到url
+
+```js
+function sleep(time) {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      resolve()
+    }, time)
+  })
+}
+let download_url = ''
+async function checkProgress() {
+  const res = await getUrl()
+  if(res.data.obj.progress !== 100) {
+    await sleep(2000)
+    await checkProgress()
+  } else {
+    download_url = res.data.obj.download_url
+  }
+}
+```
+
+
+
+
+
+
+
+##### promise加重试次数
+
+```js
+function generatePic(dom: HTMLElement, retryCount: number = 5) {
+	return new Promise((resolve, reject) => {
+    html2canvas(dom, { scale: 3, useCORS: true }).then(canvas => {
+      canvas.toBlob(blob => {
+        if(blob === null) {
+          if(retryCount > 0) {
+            resolve(generatePic(dom, retryCount - 1))  // 递归调用，重试次数-1
+          } else {
+            reject(new Error('xx'))  // 重试次数用尽，抛出错误
+          }
+        } else {
+          resolve(blob)  // 成功生成blob
+        }
+      })
+    })
+  })
+}
+```
+
+
+
+
+
+##### 时间戳转换
+
+- toLocaleString(locales, options)
+  - locales：表示语言代码的字符串
+  - options：调整输出格式的对象
+- 返回该日期对象的字符串，该字符串格式因不同语言而不同
+- `zh-CN` 指定语言环境为中国
+- `year: numeric` 显示完整的年份
+- `2-digit`：显示两位数 如 01
+
+```js
+function timeStampToYMDHM(timestamp: number) {
+  return new Date(timestamp).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false  // 24小时制
+  })
+}
+```
+
+
+
+
+
+
+
+### ? Promise实践
+
+
+
+
+
+
+
+
+
+# CSS
+
+### 常用属性
+
+```js
+// 实现高斯模糊
+filter: blur(4px)  // 将模糊或颜色偏移等图形效果应用于元素
+backdrop-filter: blur(4px)   // 为一个元素的后面区域添加模糊或颜色偏移
+
+
+// 禁止图片被拖拽
+img {
+  -webkit-user-drag: none
+}
+
+// 文字不可选
+user-select: none
+
+// div限制宽度, 但文字可能折行，如何避免
+white-space: nowrap
+
+// 元素变形的原点
+transform-origin: center（默认值
+- top left 左上角
+- 50px 50px 
+
+// 宽度设为「不带单位的小数」是无效的，需要设为百分比
+<div :style="{ width: `${submitRadio * 100}%` }"></div>
+
+// flex为1通常要和overflow-auto结合使用
+
+width: fit-content
+// 让元素的宽度根据内容的大小自适应，同时受到父容器或最大尺寸的限制
+.box {
+  width: fit-content;
+  max-width: 100%;
+}
+```
+
+
+
+- 苹果的底部安全距离
+
+```css
+@supports (margin-botton: env(safe-area-inset-bottom)) {
+  .safe-footer {
+    margin-bottom: env(safe-area-inset-bottom)
+  }
+}
+
+- @supports是css的条件规则，用于检测浏览器是否支持某个css属性
+- env()是css的环境变量函数，用于访问设备的环境变量
+  safe-area-inset-bottom是一个环境变量，表示设备底部安全区域的像素值
+  
+【通常用于处理移动设备的安全区域，确保内容不会被设备的刘海屏、底部操作栏所遮挡】
+```
+
+
+
+
+
+### 自定义字体 
+
+- **` @font-face ` 是CSS3中用于定义和引入自定义字体的一种css规则**
+- 使浏览器在渲染文本时使用指定的字体
+- 加载自定义字体时，浏览器有2种行为 **「font-display」**
+  - 字体加载完成前，文字不可见。【默认】
+  - 字体加载完成前，使用备用字体显示文字，加载完成后切换到自定义字体。
+  - **值设为swap，可以使浏览器表现为第二种行为，确保文字始终可见**
+
+```js
+@font-face {
+  font-family: 'CustomFont';
+  src: url('../xxx.ttf');
+  font-display: swap
+} 
+```
+
+
+
+
+
+
+
+### 滚动
+
+- **为什么产生滚动？内容长度超出容器，且overflow为auto**
+
+- **overflow设置为auto而不是scroll**，因为滚动条会占位置可能出现样式错乱的问题
+
+
+
+
+
+### 实现边框
+
+- div加个border，如果border颜色是透明度的话，div背景色会和border颜色重叠
+- 解决办法
+  - 使用box-shadow实现
+  - div加属性，background-clip : padding-box
+    - 控制div的背景色只作用于content和padding区域
+
+
+
+### 定位
+
+- 将一个盒子position设为absolute，宽高设为100%，如果没有已定位祖先，会相对于视口定位，撑开整个页面
+
+```js
+.wrapper {
+ /* position: relative; */ 一旦打开.box就变小
+ width: 300px;
+ height: 300px;
+}
+.box {
+ width: 100%,
+ height: 100%；
+ position: absolute; 
+ background-color: red;
+}
+<div class='wrapper'>
+ <div class='box'></div>
+</div>
+
+// .box会扩展到整个视口的大小
+```
+
+
+
+- 【少用fixed定位】
+
+
+
+
+
+### 伪类、伪元素
+
+```js
+【伪类】
+// 场景：一行5个div，最后一列不想要margin-right
+	// flex布局实现更佳
+div:nth-child(5n) {
+  margin-right: 0
+}
+
+// 场景：一行5个div，最后一行不想要margin-bottom
+div:nth-last-child(-n + 5) {
+  margin-bottom: 0
+}
+
+// 场景：除了最后一个div，其它div都加上margin-bottom
+div:not(:last-child) {
+  margin-bottom: 12px
+}
+
+【伪元素】
+// 设置输入框的占位文本颜色
+input::placeholder {
+  color: #999;
+}
+```
+
+
+
+
+
+
+
+### flex布局
+
+##### gap属性
+
+- gap用于定义flex项之间的间距
+- 在父容器上使用gap属性
+  - 一个值
+  - 两个值：「行间距，列间距」
+- **【兼容性差，不推荐使用】**
+
+
+
+
+
+##### *实现唯一子元素的整体居中
+
+- Flex container有且只有一个子元素，让其居中
+  - **子元素的margin设为auto**
+  - Justify-content/align-items设为center
+
+```js
+  <div class="wrapper">
+    <div class="box"></div>
+  </div>
+  .wrapper {
+    width: 200px;
+    height: 100px;
+    border: 2px solid #000;
+    display: flex;
+    margin: 100px auto;
+  }
+
+  .box {
+    margin: auto;
+    width: 50px;
+    height: 50px;
+    background-color: red;
+  }
+```
+
+
+
+
+
+
+
+### unocss
+
+```css
+宽高  h-80px w-full w-10%   
+大小一样时 size-16px
+
+flex布局  justify-between items-center  flex-nowrap
+flex-[0_0_auto] flex-1
+
+内边距 px-8px py-6px  pt-12px pb-0 p-16px
+外边距 ml-12px mx-12px
+
+文本 text-#fff text-14px fw-500
+text-[rgba(0,0,0,.3)]
+
+圆角 rounded-12px rounded-tl-12px rounded-bl-0
+
+溢出 overflow-x-atuo
+
+层级 z-9
+
+下边框 border-b-2px
+
+水平居中 text-center 
+
+pointer-events-none
+元素将无法响应任何鼠标或触摸事件
+
+indent-15px  文本缩进15px  [text-indent缩写] 
+
+占位文本颜色：placeholder-#999
+
+一行文本溢出控制：truncate，相当于以下三个属性
+- overflow: hidden
+- text-overflow: ellipsis
+- white-space: nowrap
+
+给第一个子元素单独设置margin-top  first:mt-0px
+```
+
+
+
+
+
+### object-fit
+
+- 指定可替换元素（img、video）的内容如何适应到一个大小确定的容器
+
+- 默认值 fill，图片将会填满容器，如果宽高比与容器不同，图片将会变形
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250201145248362.png" alt="image-20250201145248362" style="zoom:33%;" />
+
+- contain：图片将保持原始宽高比，将图片全部放到容器中（即使容器会留下一些空间
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250201145309915.png" alt="image-20250201145309915" style="zoom:33%;" />
+
+- cover：图片将保持原始宽高比并覆盖整个容器，如果图片宽高比和容器不同，部分图片会被裁掉
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250201145337085.png" alt="image-20250201145337085" style="zoom:33%;" />
+
+- none: 图片将保持原始大小，不缩放，不裁剪
 
 
 
@@ -311,7 +863,7 @@ if(index > curQuelist.value.length - 5) {
 # 修改组件库样式
 
 - **在devtool看是哪个属性决定样式**，比如vant-dialog的content的height实际是min-height决定的
-- **有的组件是直接挂载到app下面，在子组件内部通过:deep()去修改是不会生效的**
+- **有的第三方组件是直接挂载到body，覆盖样式只能在不带scoped的style标签写**
 
 
 
@@ -385,181 +937,6 @@ if(index > curQuelist.value.length - 5) {
 ##### 自带className属性
 
 - 在不带scoped的style标签写，会影响全局
-
-
-
-
-
-
-
-
-
-
-
-# CSS
-
-### 滚动
-
-- **overflow设置为auto而不是scroll**，因为滚动条会占位置可能出现样式错乱的问题
-
-
-
-### 实现边框
-
-- div加个border，如果border颜色是透明度的话，div背景色会和border颜色重叠
-- 解决办法
-  - 使用box-shadow实现
-  - div加属性，background-clip : padding-box
-    - 控制div的背景色只作用于content和padding区域
-
-
-
-### 定位
-
-- 将一个盒子position设为absolute，宽高设为100%，如果没有已定位祖先，会相对于视口定位，撑开整个页面
-
-```js
-.wrapper {
- /* position: relative; */ 一旦打开.box就变小
- width: 300px;
- height: 300px;
-}
-.box {
- width: 100%,
- height: 100%；
- position: absolute; 
- background-color: red;
-}
-<div class='wrapper'>
- <div class='box'></div>
-</div>
-
-// .box会扩展到整个视口的大小
-
-【少用fixed定位】
-```
-
-
-
-
-
-### 常用属性
-
-```js
-// 背景颜色渐变渐变
-background: linear-gradient(red, green)
-
-// 禁止图片被拖拽
-img {
-  -webkit-user-drag: none
-}
-
-// 文字不可选
-user-select: none
-```
-
-
-
-### 伪类
-
-```js
-// 场景：一行5个div，最后一列不想要margin-right
-	// flex布局实现更佳
-div:nth-child(5n) {
-  margin-right: 0
-}
-
-// 场景：一行5个div，最后一行不想要margin-bottom
-div:nth-last-child(-n + 5) {
-  margin-bottom: 0
-}
-
-// 场景：除了最后一个div，其它div都加上margin-bottom
-div:not(:last-child) {
-  margin-bottom: 12px
-}
-```
-
-
-
-
-
-### flex布局
-
-##### gap属性
-
-- gap用于定义flex项之间的间距
-- 在父容器上使用gap属性
-  - 一个值
-  - 两个值：「行间距，列间距」
-- **【兼容性差，不推荐使用】**
-
-
-
-
-
-##### **实现有且只有一个子元素的水平垂直居中
-
-- Flex container有且只有一个子元素，让其居中
-  - Justify-content/align-items设为center
-  - **子元素的margin设为auto**
-
-```js
-  <div class="wrapper">
-    <div class="box"></div>
-  </div>
-  .wrapper {
-    width: 200px;
-    height: 100px;
-    border: 2px solid #000;
-    display: flex;
-    margin: 100px auto;
-  }
-
-  .box {
-    margin: auto;
-    width: 50px;
-    height: 50px;
-    background-color: red;
-  }
-```
-
-
-
-
-
-
-
-### Unocss
-
-```text
-h-80px w-full w-10%   
-宽高大小一样时 size-16px
-
-justify-between items-center  flex-nowrap
-
-px-8px py-6px  pt-12px pb-0 p-16px
-ml-12px mx-12px
-
-text-#fff text-14px fw-500
-
-圆角 rounded-12px rounded-tl-12px rounded-bl-0
-
-overflow-x-atuo
-
-层级 z-9
-
-flex-[0_0_auto] flex-1
-
-下边框 border-b-2px
-
-text-center 水平居中
-
-pointer-events-none
-元素将无法响应任何鼠标或触摸事件
-
-indent-15px  文本缩进15px  [text-indent缩写] 
-```
 
 
 
@@ -817,6 +1194,43 @@ const handleFileChange = async (event: any) => {
 
 
 
+# sourcemap
+
+### .map文件内容
+
+- version: sourcemap的版本，当前为3
+- file: 转换后的文件名
+- sources： 转换前的文件，该项是一个数组，表示可能存在多个文件合并
+- names：数组，存储转换前的所有变量名和属性名
+  - 源代码转换成ast树，由ast树中的name字段构成的数组
+- mappings：记录位置信息的字符串
+
+```js
+"mappings": "+LACOA,MAAM,S,GACTC,EAAAA;EAAAA,GAA8B,UAA1B;yBAAqB,G,GAAz"
+```
+
+
+
+### 安全性问题
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Typescript
 
 #### ??
@@ -824,6 +1238,25 @@ const handleFileChange = async (event: any) => {
 - 空值合并运算符
 - 当??左侧是null或undefined时，返回右侧的值
 - **|| 还会将 「0、 false、 ''」视为假值，而 ?? 只关注null和undefined**
+
+
+
+
+
+
+
+# 基建
+
+### lint-staged
+
+- 利用husky管理git钩子
+- 在提交之前（pre-commit钩子）运行lint-staged
+- 根据lint-staged相关配置对暂存区代码进行校验
+  - 与eslint、prettier、stylelint等工具结合，确保提交的代码符合规范
+
+
+
+
 
 
 

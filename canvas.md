@@ -2,7 +2,7 @@
 
 ### 基本使用
 
-- html5新增元素---画布
+- html5新增元素==>画布
 - canvas元素只有2个属性，width和height，默认值是w-300px；h-150px
 - 坐标原点默认在canvas元素左上角
 
@@ -118,6 +118,10 @@ image.onload = function() {
 
 
 # Svg
+
+### 实现波浪线
+
+
 
 
 

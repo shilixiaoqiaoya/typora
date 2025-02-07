@@ -17,10 +17,10 @@
 
 #### 删除分支
 
-- 删除本地分支：**git branch -d localBranchName**
+- 删除本地分支：**git branch -d BranchName**
   - 当一个分支被推送并合并到远程分支后，-d才会本地删除该分支
-  - 如果一个分支还没被推送或者和并，使用-D强制删除它
-- 删除远程分支：**git push origin --delete remoteBranchName**
+  - 如果一个分支还没被推送或者合并，使用-D强制删除它
+- 删除远程分支：**git push origin --delete BranchName**
 
 
 
@@ -30,6 +30,28 @@
 
 - git pull <远程主机名> <远程分支名>
 - 将远程主机origin的master分支拉取过来，和当前分支合并：**git pull origin master**
+
+
+
+
+
+#### 常见命令
+
+- git restore . 放弃现有更改
+- git switch <branch_name> 切换分支
+- git switch -c <branch_name> 创建并切换分支
+- git cherry-pick <commit_id>
+- git checkout <commit_hash>
+
+
+
+
+
+
+
+
+
+
 
 
 
