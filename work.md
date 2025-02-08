@@ -1,5 +1,7 @@
 - 代码逻辑没问题就检查写法
 - localhost对应127.0.0.1
+- *涉及到异步就想promise*
+- **flex布局** YYDS！！！
 
 
 
@@ -432,14 +434,27 @@ console.log(params.get('unknown')); // 输出: null（如果参数不存在）
 
 
 
+##### 获取时间戳
+
+```js
+const timeStamp = new Date('2025-2-8').getTime()
+```
+
+
+
+
+
+
+
 
 
 ### 截图
 
 ##### html2canvas
 
+- **display为none会截取失败**
 - 耗时短，ios/安卓兼容性好
-- 支持截取脱离标准流的元素
+- **支持截取脱离标准流的元素` absolute; left-9999px`** 
 - 部分css属性不支持，比如波浪线和虚线
 - useCORS设为true，可以通过http请求获取图片
 - Scale
@@ -449,7 +464,7 @@ console.log(params.get('unknown')); // 输出: null（如果参数不存在）
 ##### dom2image
 
 - 耗时长，ios/安卓兼容性差
-- 脱离标准流的元素只能截取可视区域内的
+- **脱离标准流的元素只能截取可视区域内的**
 - 支持波浪线和虚线
 
 
@@ -513,10 +528,10 @@ async function checkProgress() {
 
 
 
-##### promise加重试次数
+##### 递归直至blob不为null（限制次数
 
 ```js
-function generatePic(dom: HTMLElement, retryCount: number = 5) {
+function generatePic(dom: HTMLElement, retryCount: number = 5): Promise<Blob> {
 	return new Promise((resolve, reject) => {
     html2canvas(dom, { scale: 3, useCORS: true }).then(canvas => {
       canvas.toBlob(blob => {
@@ -568,9 +583,34 @@ function timeStampToYMDHM(timestamp: number) {
 
 
 
-### ? Promise实践
+### Promise实践
 
+- **并行生成图片** Promise.all()
 
+```js
+function handleGeneratePic() {
+  // 生成图片前置空逻辑
+  imgShowSrc.value = ''
+  fileList = []
+  picBlobArr = []
+  isShowOriginDom.value = true
+  isShowLoading.value = true
+  // 并行生成图片
+  Promise.all(generatePic(picOneRef.value?.$el, picTwoRef.value?.$el)).
+  	then(async (res) => {
+			isShowOriginDom.value = false
+    	picOneBlob = res[0]
+      picTwoBlob = res[1]
+    	picBlobArr.push(picOneBlob. picTwoBlob)
+      const picOneFlie = new File([picOneBlob], 'report1.png', { type: 'image/png' })
+      const picTwoFile = new File([picTwoBlob], 'report2.png', { type: 'image/png' })
+      fileList.push(picOneFlie, picTwoFile)
+    	const uploadRes = await uploader.uploadFile(fileList)
+      imgSrcList = uploadRes.map(item => 'https://' + item.data.location)
+    	imgShowSrc.value = imgSrcList[0]
+    })
+}
+```
 
 
 
@@ -580,12 +620,14 @@ function timeStampToYMDHM(timestamp: number) {
 
 # CSS
 
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250208151004587.png" alt="image-20250208151004587" style="zoom:50%;" />
+
 ### 常用属性
 
 ```js
 // 实现高斯模糊
 filter: blur(4px)  // 将模糊或颜色偏移等图形效果应用于元素
-backdrop-filter: blur(4px)   // 为一个元素的后面区域添加模糊或颜色偏移
+backdrop-filter: blur(4px)   // 为一个元素的背景添加模糊或颜色偏移
 
 
 // 禁止图片被拖拽
@@ -609,13 +651,28 @@ transform-origin: center（默认值
 
 // flex为1通常要和overflow-auto结合使用
 
+
 width: fit-content
 // 让元素的宽度根据内容的大小自适应，同时受到父容器或最大尺寸的限制
 .box {
   width: fit-content;
   max-width: 100%;
 }
+
+// 圆形
+border-radius: 50%
+  
+// 元素不响应点击事件
+pointer-events: none
 ```
+
+
+
+
+
+
+
+
 
 
 
@@ -665,7 +722,7 @@ width: fit-content
 ### 滚动
 
 - **为什么产生滚动？内容长度超出容器，且overflow为auto**
-
+- *【给哪个元素设置overflow-auto，哪个元素会滚动】*
 - **overflow设置为auto而不是scroll**，因为滚动条会占位置可能出现样式错乱的问题
 
 
@@ -708,6 +765,71 @@ width: fit-content
 
 
 - 【少用fixed定位】
+
+
+
+##### sticky
+
+- 粘性定位，是相对定位和固定定位的混合
+- **元素在跨域特定阈值前为相对定位，之后是固定定位**
+- **【元素相对于它的最近拥有“滚动机制”的祖先定位】**
+- 需要指定top/left/right/bottom四个阈值之一，才可使得粘性定位生效
+- 使用场景：
+
+```html
+<div>
+  <dl>
+    <dt>A</dt>
+    <dd>Andrew W.K.</dd>
+    <dd>Apparat</dd>
+    <dd>Arcade Fire</dd>
+    <dd>At The Drive-In</dd>
+    <dd>Aziz Ansari</dd>
+  </dl>
+  <dl>
+    <dt>C</dt>
+    <dd>Chromeo</dd>
+    <dd>Common</dd>
+    <dd>Converge</dd>
+    <dd>Crystal Castles</dd>
+    <dd>Cursive</dd>
+  </dl>
+  <dl>
+    <dt>E</dt>
+    <dd>Explosions In The Sky</dd>
+  </dl>
+  <dl>
+    <dt>T</dt>
+    <dd>Ted Leo & The Pharmacists</dd>
+    <dd>T-Pain</dd>
+    <dd>Thrice</dd>
+    <dd>TV On The Radio</dd>
+    <dd>Two Gallants</dd>
+  </dl>
+</div>
+```
+
+```css
+* {
+  box-sizing: border-box
+}
+dt {
+  position: sticky;
+  top: 0
+}
+```
+
+![image-20250208100019426](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250208100019426.png)
+
+![image-20250208100031401](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250208100031401.png)
+
+
+
+
+
+
+
+
 
 
 
@@ -831,6 +953,16 @@ indent-15px  文本缩进15px  [text-indent缩写]
 
 给第一个子元素单独设置margin-top  first:mt-0px
 ```
+
+
+
+
+
+### 高度塌缩
+
+- 如果父元素的高度是由子元素撑开的（即未显式设置height），那么父元素的高度会根据子元素的内容动态计算
+- 当给某个在标准流的子元素设置h-full，它会尝试继承父元素的高度，但由于父元素高度未显式设置，浏览器无法确定父元素的高度，从而导致子元素的高度失效，出现塌缩现象
+- 如果这个子元素脱离标准流，是会继承父元素的高度
 
 
 
