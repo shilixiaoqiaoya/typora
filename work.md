@@ -2,8 +2,13 @@
 - localhost对应127.0.0.1
 - *涉及到异步就想promise*
 - **flex布局** YYDS！！！
+- **【当只有纯粹的 if-else且是简单的赋值操作时，用三元运算符 `age >= 18 ? wine : water `】**
 
 
+
+vscode
+
+- command+k  清除终端 
 
 
 
@@ -155,11 +160,15 @@ const props = withDefaults(defineProps<{
 
 # Javascript
 
+- es5在所有的浏览器都支持，所以是babel转译的目标
+- Es2016-es2020  es6+
+- Es2021往后  esnext
+
 ### Array
 
 ##### Array.prototype.at()
 
-- 从数组中拿到指定位置的元素
+- **从数组中拿到指定位置的元素**
 - 可以使用负数索引从数组的末尾访问元素
 - 处理动态数组时更加方便
 
@@ -171,11 +180,6 @@ console.log(arr.at(5))  // undefined
 ```
 
 
-
-##### 空数组
-
-- if ( [ ] )  为true
-- if ( { } )  为true
 
 
 
@@ -209,6 +213,11 @@ bar()
 
 - 返回该字符串从起始索引到结束索引（不包括）的部分
 - 不影响原数组，类似数组的slice方法
+- 如果未给结束索引，则截取到字符串最后
+
+
+
+##### lastIndexOf
 
 
 
@@ -442,11 +451,30 @@ const timeStamp = new Date('2025-2-8').getTime()
 
 
 
+##### 运算
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250209122431658.png" alt="image-20250209122431658" style="zoom:50%;" />
+
+- 5个虚假值：**0 空字符串 undefined null NaN** 
+- **Boolean()，以上5个虚假值会变为false**
+  - if ( [ ] )  为true 
+  - if ( { } )  为true
+- **【当只有if-else且是简单的赋值操作时，用三元运算符 `age >= 18 ? wine : water `】**
+- while循环适合于「不确定要循环多少次」的情况，不需要 计数器
+
+```js
+`Math.max()` 可以传入多个逗号分隔的值。`Math.min()同理`
+
+`console.table(obj)`以表格的形式展示对象
+
+Math.trunc() 直接将数字的小数部分去掉
+```
 
 
 
 
 
+ 
 
 ### 截图
 
@@ -914,7 +942,7 @@ input::placeholder {
 
 
 
-### unocss
+### Unocss
 
 ```css
 宽高  h-80px w-full w-10%   
@@ -952,6 +980,8 @@ indent-15px  文本缩进15px  [text-indent缩写]
 - white-space: nowrap
 
 给第一个子元素单独设置margin-top  first:mt-0px
+
+文字不可选 select-none
 ```
 
 
@@ -961,8 +991,12 @@ indent-15px  文本缩进15px  [text-indent缩写]
 ### 高度塌缩
 
 - 如果父元素的高度是由子元素撑开的（即未显式设置height），那么父元素的高度会根据子元素的内容动态计算
+
 - 当给某个在标准流的子元素设置h-full，它会尝试继承父元素的高度，但由于父元素高度未显式设置，浏览器无法确定父元素的高度，从而导致子元素的高度失效，出现塌缩现象
-- 如果这个子元素脱离标准流，是会继承父元素的高度
+
+  【在标准流的子元素默认会继承父元素的高度，加了h-full反而有问题】
+
+- 如果这个子元素脱离标准流，默认情况下它的高度不依赖于父元素的内容。设置h-full会继承父元素的高度
 
 
 
