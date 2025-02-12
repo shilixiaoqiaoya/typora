@@ -1,3 +1,9 @@
+p82-86，掷骰子游戏
+
+
+
+
+
 - 代码逻辑没问题就检查写法
 - localhost对应127.0.0.1
 - *涉及到异步就想promise*
@@ -160,9 +166,72 @@ const props = withDefaults(defineProps<{
 
 # Javascript
 
-- es5在所有的浏览器都支持，所以是babel转译的目标
+- **es5在所有的浏览器都支持，所以是babel转译的目标**
+
 - Es2016-es2020  es6+
+
 - Es2021往后  esnext
+
+- 特点
+
+  - 多范式：面向对象编程 、函数式编程 
+  - 早期javascript是解释型语言  
+  - 现代javascriptp是即时编译型语言（just-in-time compiled language）
+  - **如何理解编译型语言/解释性语言/即时编译型语言**
+  - <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250212151529831.png" alt="image-20250212151529831" style="zoom:50%;" />
+
+  
+
+  - javascript引擎基本工作原理
+
+  - ![image-20250212152547330](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250212152547330.png) 
+  - 
+
+  - javascript运行时
+
+    - 浏览器：三大部分。js引擎，webAPIs，回调函数队列
+
+  - ![image-20250212153425122](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250212153425122.png)
+
+     
+
+    - node.js：三大部分。js引擎，c++ bindings & 线程池，回调函数队列
+
+  - <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250212153621324.png" alt="image-20250212153621324" style="zoom:50%;" />
+
+- **v8引擎组成：栈 + 堆**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250212150632722.png" alt="image-20250212150632722" style="zoom:40%;" />
+
+- 代码在函数调用栈中执行
+- 函数调用的顺序和作用域链毫无关系，作用域链取决于函数 定义的位置
+
+- 变量提升
+
+```js
+console.log(a);  // undefined
+console.log(b);  // ReferenceError: Cannot access 'b' before initialization
+var a = 1;
+const b = 2;
+【var声明的变量会放在window对象上】
+————————————————————————
+foo(); // foo
+bar(); // bar is not a function  ===> bar is undefined
+baz(); // ReferenceError: Cannot access 'baz' before initialization
+function foo() {
+  console.log("foo");
+}
+var bar = function () {
+  console.log("bar");
+};
+const baz = () => {
+  console.log("baz");
+};
+```
+
+
+
+
 
 ### Array
 
@@ -472,6 +541,27 @@ Math.trunc() 直接将数字的小数部分去掉
 
 
 
+```js
+// 给一个dom节点添加/移除某个类名
+dom.classList.add('hidden')
+dom.classList.remove('hidden')
+dom.classList.contains ('hidden')  是否有某个类
+dom.classList.toggle ('hidden')  若存在则移除类，若不存在则添加类
+
+// keydown事件，event里「key」存储了按下键的信息
+```
+
+
+
+```js
+if(true) {
+  function foo() {
+    console.log('foo')
+  }
+}
+foo()  // 非严格模式下可以正常执行；严格模式会报错
+```
+
 
 
  
@@ -641,6 +731,13 @@ function handleGeneratePic() {
 ```
 
 
+
+
+
+### 掷骰子游戏
+
+```js
+```
 
 
 
