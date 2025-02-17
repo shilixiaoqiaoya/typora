@@ -8,7 +8,10 @@ p82-86，掷骰子游戏
 - localhost对应127.0.0.1
 - *涉及到异步就想promise*
 - **flex布局** YYDS！！！
-- **【当只有纯粹的 if-else且是简单的赋值操作时，用三元运算符 `age >= 18 ? wine : water `】**
+- **【当只有纯粹的 if-else且是简单的赋值操作时，使用三元运算符 `age >= 18 ? wine : water `】**
+  - **如果`if`条件是判断该值是否为undefined，使用OR运算符去判断更好**
+
+
 
 
 
@@ -102,10 +105,63 @@ router.beforeEach((to, from, next) => {
 
 
 
-### reactive
+### Object.assign
 
-- 使用reactive对深层对象reportData进行初始化  
+- **使用reactive对深层对象reportData进行初始化**  
 - 通过接口获取数据：**Object.assign(reportData, res.data)**
+
+```js
+const obj = {}
+const res = Object.assign(obj, { a: 1 })
+console.log(obj === res)  // true
+console.log(obj) // { a: 1 }
+```
+
+- **可以将对象进行解构以方便使用某些属性**  
+
+  - 解构时起别名
+
+  ```js
+  const { user: applyUser } = gitlabData
+  ```
+
+  - 解构时赋默认值
+
+  ```js
+  const { user = 'why' } = gitlabData
+  ```
+
+  - 误区
+
+  ```js
+  const { a, b } = { a:1, b: 2 }
+  a = 3 // 报错 TypeError: Assignment to constant variable.
+  ```
+
+  ```js
+  let a = 111
+  let b = 999
+  const obj = { a:1, b: 9 }
+  ({a, b} = obj)
+  console.log(a, b)  // 1 9
+  ```
+
+- 实现对象的浅拷贝
+
+```js
+const obj = { foo: 'foo',  : 'bar' }
+① Object.assign({}, obj)
+② 扩展运算符：{ ...obj }
+```
+
+- 数组解构优雅用法。 摒弃 arr[0] arr[1]这种非语义化代码
+
+```js
+const arr = ['coder', 'why']
+const [firstName, lastName] = arr
+```
+
+
 
 
 
@@ -213,7 +269,7 @@ console.log(a);  // undefined
 console.log(b);  // ReferenceError: Cannot access 'b' before initialization
 var a = 1;
 const b = 2;
-【var声明的变量会放在window对象上】
+【var声明的变量会放在window对象上】 
 ————————————————————————
 foo(); // foo
 bar(); // bar is not a function  ===> bar is undefined
@@ -229,7 +285,24 @@ const baz = () => {
 };
 ```
 
+- this指向
 
+```js
+'use strict'
+console.log(this)  // window
+var birthday = 2000  【var声明的变量会被加在window上】
+const jonas = {
+  birthday: 1991,
+  calcAge: () => {
+    console.log(this)  // window
+    console.log(2037 - this.birthday)  // 37
+  }
+}
+jonas.calcAge()
+```
+
+- 不同数据类型的存储区别
+- ![image-20250214094019502](/Users/tal/Library/Application Support/typora-user-images/image-20250214094019502.png)
 
 
 
@@ -238,7 +311,7 @@ const baz = () => {
 ##### Array.prototype.at()
 
 - **从数组中拿到指定位置的元素**
-- 可以使用负数索引从数组的末尾访问元素
+- 可以使用** **从数组的末尾访问元素
 - 处理动态数组时更加方便
 
 ```js
@@ -247,6 +320,14 @@ console.log(arr.at(0))  // 10
 console.log(arr.at(-1))  // 50
 console.log(arr.at(5))  // undefined
 ```
+
+- 也适用于字符串
+
+```js
+'jonas'.at(0)  // 'j'
+```
+
+
 
 
 
@@ -476,14 +557,6 @@ if(index > curQuelist.value.length - 5) {
 
 
 
-##### 解构赋值起别名
-
-```js
-const { user: applyUser } = gitlabData
-```
-
-
-
 
 
 ##### 新人引导是否展示实现
@@ -528,7 +601,7 @@ const timeStamp = new Date('2025-2-8').getTime()
 - **Boolean()，以上5个虚假值会变为false**
   - if ( [ ] )  为true 
   - if ( { } )  为true
-- **【当只有if-else且是简单的赋值操作时，用三元运算符 `age >= 18 ? wine : water `】**
+- **【当只有if-else且是简单的赋值操作时，使用三元运算符 `age >= 18 ? wine : water `】**
 - while循环适合于「不确定要循环多少次」的情况，不需要 计数器
 
 ```js
@@ -539,7 +612,7 @@ const timeStamp = new Date('2025-2-8').getTime()
 Math.trunc() 直接将数字的小数部分去掉
 ```
 
-
+- dom对类名的原生操作
 
 ```js
 // 给一个dom节点添加/移除某个类名
@@ -551,16 +624,60 @@ dom.classList.toggle ('hidden')  若存在则移除类，若不存在则添加�
 // keydown事件，event里「key」存储了按下键的信息
 ```
 
-
+- OR运算符 
+  - 操作数可以是任意数据类型；可以返回任意数据类型；会短路(short-circuit)【遇到真值直接返回 
+  - **返回第一个真值**；如果都假则返回最后一个假值
+  - **应用：赋默认值**
 
 ```js
-if(true) {
-  function foo() {
-    console.log('foo')
-  }
-}
-foo()  // 非严格模式下可以正常执行；严格模式会报错
+3 || 'jonas'  ==>  3
+'' || 'jonas'  ==> 'jonas'
+true || 0  ==> true
+undefined || null  ==> null
+
+// 应用
+bar = bar || 'default'
 ```
+
+- AND运算符
+  - **返回第一个假值**；如果都真则返回最后一个真值
+  - **应用: 如果第一个操作数为真值，则执行第二个操作数的代码逻辑**
+
+```js
+true && console.log('hhh')
+```
+
+- ?? :  0和空字符串 不视为假值
+
+- `||=`  
+-  `??=` 
+- `&&=`
+
+
+
+
+
+##### 值传递； 引用传递
+
+ 
+
+##### bind
+
+```js
+const addTax = (rate, value) => value + value * rate
+
+const add23 = addTax.bind(null, 0.23) 
+add23(100)
+const add34 = addTax.bind(null, 0.34)
+add23(100)
+
+// 类似于下面高阶函数的功能，推荐使用bind
+const addTax = (rate) => {
+  return value => value + value * rate
+} 
+```
+
+
 
 
 
