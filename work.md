@@ -1,4 +1,4 @@
-p82-86，掷骰子游戏
+p82-86，掷骰子游戏  
 
 
 
@@ -7,11 +7,47 @@ p82-86，掷骰子游戏
 - 代码逻辑没问题就检查写法
 - localhost对应127.0.0.1
 - *涉及到异步就想promise*
-- **flex布局** YYDS！！！
+- **flex布局**  YYDS！
 - **【当只有纯粹的 if-else且是简单的赋值操作时，使用三元运算符 `age >= 18 ? wine : water `】**
   - **如果`if`条件是判断该值是否为undefined，使用OR运算符去判断更好**
 
+- 数组：先考虑使用高阶函数实现； map、filter、reduce；还有其他的数组方法 
 
+```js
+const str = "this is a sentence";
+const foo = (str) => {
+  return str.split(" ").reduce((acc, cur) => {
+    return acc + cur[0].toUpperCase() + cur.slice(1) + " ";
+  }, "");
+};
+console.log(foo(str));  // This Is A Sentence 
+```
+
+```js
+const { deposits, withdraws } = accounts.flatMap(acc => acc.movements)
+.reduce((sums, cur) => {
+  sums[cur > 0 ? 'deposits' : 'withdraws'] += cur
+  return sums
+}, { deposits: 0, withdraws: 0 })
+```
+
+
+
+- focus()获取焦点，blur() 失去焦点
+
+- toFixed()返回值是字符串
+- 在bigint出现前js可以表示的最大数字  `2**53 - 1`，超过这个数表示不准确
+  - 表示：Number.MAX_SAFE_INTEGER
+
+- 数字转字符串除了 +‘ ’；也可以使用模板字符串包装下 
+
+```js
+123 + ''
+`${123}`
+```
+
+- Number.parseInt()  Number.parseFloat() 
+- `getComputedStyle(element)`  可以获取到该dom的所有样式
 
 
 
@@ -47,6 +83,8 @@ vscode
 
 
 
+
+
 ### keep-alive
 
 - include属性匹配的是组件的name属性，而不是router中的name属性
@@ -57,6 +95,8 @@ vscode
   <Component :is='view'/>
 </keep-alive>
 ```
+
+
 
 
 
@@ -308,10 +348,37 @@ jonas.calcAge()
 
 ### Array
 
-##### Array.prototype.at()
+##### 创建数组
+
+```js
+1、new Array
+// 传入多个参数
+const arr = new Array(-10, -2, 1, 2, 4, 8)
+console.log(arr) // [-10, -2, 1, 2, 4, 8]
+
+// 传入一个参数，代表所创建数组的长度
+const arr = new Array(5)
+console.log(arr)  // [empty x 5]
+
+// fill方法
+arr.fill(1) ==> [1,1,1,1,1]
+arr.fill(23, 3, 5) ==>  [1,1,1,23,23] // 索引[3,5)填充为23
+
+2、Array.from()
+Array.from({ length: 5}, () => 1)  // [1,1,1,1,1]
+
+const arr = Array.from({ length: 5 }, (_, i) => i + 6);  // [6,7,8,9,10]
+Array.from(类数组对象, 映射回调函数)
+```
+
+
+
+
+
+##### at()
 
 - **从数组中拿到指定位置的元素**
-- 可以使用** **从数组的末尾访问元素
+- 可以使用**负数**从数组的末尾访问元素
 - 处理动态数组时更加方便
 
 ```js
@@ -329,7 +396,41 @@ console.log(arr.at(5))  // undefined
 
 
 
+##### sort()
 
+- 会改变原数组，为了不改变原数组，采取下面写法
+
+```js
+arr.slice().sort()
+```
+
+- 方法如果不传参数，会把元素视为字符串进行对应排序
+- **传入的回调函数返回值大于1，调换位置；小于1则位置不变**
+
+```js
+const arr = [1, 2, 4, -2, 8, -10]
+// 由小到大排序
+arr.sort((a, b) => {
+  if(a > b) return 1
+  if(a < b) return -1
+})
+// 由大到小排序
+arr.sort((a, b) => {
+  if(a > b) return -1
+  if(a < b) return 1
+})
+// 简练
+升序：arr.sort((a, b) => a - b)
+降序：arr.sort((a, b) => b - a)
+```
+
+
+
+
+
+##### flatmap()
+
+- 是map()和flat(1)的结合
 
 
 
@@ -369,7 +470,7 @@ bar()
 
 ##### lastIndexOf
 
-
+##### replace不影响原字符串
 
 
 
@@ -411,30 +512,6 @@ const userInput = "<script>alert('XSS');</script>";
 const url = `https://example.com/search?q=${encodeURIComponent(userInput)}`;
 console.log(url);
 // https://example.com/search?q=%3Cscript%3Ealert%28%27XSS%27%29%3C%2Fscript%3E
-```
-
-
-
-
-
-
-
-### scrollIntoView()
-
-- **使指定的元素滚动到指定区域内**
-- 参数
-  - 一个布尔值
-  - 一个对象
-
-```js
-element.scrollIntoView(alignToTop)
-// alignToTop: true，元素对齐到视口顶部；false，元素对齐到视口底部
-
-element.scrollIntoView({
-  behavior: 'smooth',
-  block: 'start/center/end',  // 垂直对齐
-  inline: 'start/center/end'  // 水平对齐
-})
 ```
 
 
@@ -543,22 +620,6 @@ if(index > curQuelist.value.length - 5) {
 
 
 
-##### container.scrollTo(0, 0)
-
-- 将容器的滚动条移动到容器的顶部
-- 第一个参数是水平滚动的位置，第二个参数是垂直滚动的位置
-- window.scrollTo(0, 0)
-
-
-
-##### lastElementChild
-
-- 返回文档的最后一个子元素，若不存在则返回null
-
-
-
-
-
 ##### 新人引导是否展示实现
 
 - 存localStorage一个数组，判断数组是否包含用户id
@@ -653,6 +714,17 @@ true && console.log('hhh')
 -  `??=` 
 - `&&=`
 
+- 【"23"转为 23 ：可以在前面加上加号】
+
+```js
+console.log(+'23')  // 23
+
+// 数字常用方法:
+Number.isInteger()
+Number.parseInt()
+Number.parseFloat()
+```
+
 
 
 
@@ -676,6 +748,46 @@ const addTax = (rate) => {
   return value => value + value * rate
 } 
 ```
+
+
+
+##### 日期
+
+```js
+const future = new Date(2037, 10, 19, 15, 23)
+console.log(future)  // 2037-11-19T07:23:00.000Z
+console.log(future.getFullYear())  // 2037
+console.log(future.getMonth() + 1) // 11
+console.log(future.getDate()) // 19
+console.log(future.getHours())  // 15
+console.log(future.getMinutes())  // 23
+console.log(future.getSeconds()) // 0
+console.log(future.getTime())  // 2142228180000
+console.log(future.getDay())  // 4 礼拜几 
+console.log(future.toISOString()) // 2037-11-19T07:23:00.000Z  
+
+console.log(new Date(2142228180000)) // 2037-11-19T07:23:00.000Z
+```
+
+- 日期国际化 `new Intl.DateTimeFormat(locale, options)`
+
+```js
+const now = new Date()
+const options = {
+  hour: 'numeric',
+  minute: 'numeric',
+  day: 'numeric',
+  month: '2-digit',
+  year: 'numeric',
+  weekday: 'long',
+}
+const locale = navigator.language  // 通过浏览器获取语言环境  zh-CN
+new Intl.DateTimeFormat(locale, options).format(now)  // 2025年02月22日星期六 11:55
+
+// numeric 、2-digit(两位) 、long
+```
+
+- 数字国际化 `new Intl.NumberFormat(navigator.language, options).format(num)`
 
 
 
@@ -796,7 +908,6 @@ function generatePic(dom: HTMLElement, retryCount: number = 5): Promise<Blob> {
   - options：调整输出格式的对象
 - 返回该日期对象的字符串，该字符串格式因不同语言而不同
 - `zh-CN` 指定语言环境为中国
-- `year: numeric` 显示完整的年份
 - `2-digit`：显示两位数 如 01
 
 ```js
@@ -813,6 +924,61 @@ function timeStampToYMDHM(timestamp: number) {
 ```
 
 
+
+
+
+
+
+### 滚动
+
+##### 距离值
+
+- document.documentElement.**clientHeight**
+  - 页面的高度
+
+- document.documentElement.**clientWidth**
+  - 页面的宽度
+
+- window.**pageXOffset**
+  - 页面的x轴方向偏移值
+
+- window.**pageYOffset**
+  - 页面的y轴方向偏移值
+
+- **element.getBoundingClientRect()**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250222174131271.png" alt="image-20250222174131271" style="zoom:50%;" />
+
+
+
+##### container.scrollTo(0, 0)
+
+- 将容器的滚动条移动到容器的顶部
+- 第一个参数是水平滚动的位置，第二个参数是垂直滚动的位置
+- `window.scrollTo(0, 0)`
+- `window.scrollTo({left: xx, top: yy, behavior: 'smooth'})`
+
+
+
+##### scrollIntoView()
+
+- **使指定的元素滚动到指定区域内**
+- 参数
+  - 一个布尔值
+  - 一个对象
+
+```js
+element.scrollIntoView(alignToTop)
+// alignToTop: true，元素对齐到视口顶部；false，元素对齐到视口底部
+
+element.scrollIntoView({
+  behavior: 'smooth',
+  block: 'start/center/end',  // 垂直对齐
+  inline: 'start/center/end'  // 水平对齐
+})
+```
+
+ 
 
 
 
@@ -855,6 +1021,22 @@ function handleGeneratePic() {
 
 ```js
 ```
+
+
+
+
+
+# Dom API
+
+![image-20250222133333153](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250222133333153.png) 
+
+ 
+
+##### lastElementChild
+
+- 返回文档的最后一个子元素，若不存在则返回null
+
+
 
 
 
@@ -1196,6 +1378,8 @@ indent-15px  文本缩进15px  [text-indent缩写]
 给第一个子元素单独设置margin-top  first:mt-0px
 
 文字不可选 select-none
+
+背景高斯模糊效果 backdrop-blur-16px 
 ```
 
 
@@ -1218,7 +1402,7 @@ indent-15px  文本缩进15px  [text-indent缩写]
 
 ### object-fit
 
-- 指定可替换元素（img、video）的内容如何适应到一个大小确定的容器
+- 指定可替换元素**（img、video）**的内容如何适应到一个大小确定的容器
 
 - 默认值 fill，图片将会填满容器，如果宽高比与容器不同，图片将会变形
 
@@ -1326,6 +1510,16 @@ indent-15px  文本缩进15px  [text-indent缩写]
 
 # 图片上传
 
+file 
+
+blob
+
+base64的dataurl 
+
+
+
+
+
 ### 基本流程
 
 - 用户选择图片
@@ -1426,11 +1620,11 @@ FileReader.result
 
 FileReader.error
 
-FileReader.onload()
+**FileReader.onload()**
 
 - 处理load事件，该事件在读取操作完成时触发
 
-FileReader.readAsDataURL()
+**FileReader.readAsDataURL()**
 
 - 开始读取指定的Blob中的内容
 - 一旦完成，result属性中将包含一个data:URL格式的字符串以表示所读取文件的内容
@@ -1445,6 +1639,7 @@ fileReader.onload = () => {
  // res是base64格式的图片
  let res = fileReader.result
 }
+【注：每个file都要创建一个FileReader实例】
 ```
 
 - 使用FileReader还实现前端图片预览，将fileReader.result赋值给img的src
