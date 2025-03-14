@@ -1,5 +1,7 @@
 p82-86，掷骰子游戏  
 
+地图程序实现 class
+
 
 
 
@@ -33,17 +35,25 @@ const { deposits, withdraws } = accounts.flatMap(acc => acc.movements)
 
 
 
+- 对数组和 对象进行解构，更加语义化
+
 - focus()获取焦点，blur() 失去焦点
 
 - toFixed()返回值是字符串
 - 在bigint出现前js可以表示的最大数字  `2**53 - 1`，超过这个数表示不准确
   - 表示：Number.MAX_SAFE_INTEGER
 
-- 数字转字符串除了 +‘ ’；也可以使用模板字符串包装下 
+- 数字转字符串除了` + ‘’`；也可以使用模板字符串包装下 
 
 ```js
 123 + ''
 `${123}`
+```
+
+- 字符串转数字，前面添加 `+`
+
+```js
+console.log(+'23')  // 23
 ```
 
 - Number.parseInt()  Number.parseFloat() 
@@ -51,9 +61,26 @@ const { deposits, withdraws } = accounts.flatMap(acc => acc.movements)
 
 
 
+
+
 vscode
 
 - command+k  清除终端 
+- Command + j 打开终端 
+- javascript查看时间差
+
+```js
+// 启动一个定时器，并为其指定一个唯一的标签
+console.time(timer)
+// 在计时器运行期间记录当前时间差
+console.timeLog(timer, 'node 1 completed')
+// 停止指定标签的计时器，并输出从console.time到console.timeEnd之间的时间差（毫秒为单位）
+console.timeEnd(timer)
+```
+
+
+
+
 
 
 
@@ -145,7 +172,7 @@ router.beforeEach((to, from, next) => {
 
 
 
-### Object.assign
+### Object.assign 
 
 - **使用reactive对深层对象reportData进行初始化**  
 - 通过接口获取数据：**Object.assign(reportData, res.data)**
@@ -474,6 +501,68 @@ bar()
 
 
 
+### Class的私有/公有的属性/方法
+
+- 实现数据隐私和封装
+
+```js
+class Test {
+  // public field
+  locale = navigator.language;
+
+  // private field
+  #name;
+  #height = 1.88;
+  #address;
+
+  constructor(age, address) {
+    this.age = age;
+    this.#address = address;
+  }
+
+  // private method
+  #sayHello() {
+    console.log("sayHello");
+  }
+
+  say() {
+    this.#sayHello();
+  }
+
+  get name() {
+    return this.#name;
+  }
+
+  set name(value) {
+    this.#name = value;
+  }
+
+  get height() {
+    return this.#height;
+  }
+
+  get address() {
+    return this.#address;
+  }
+}
+const test = new Test(18, "beijing");
+test.name = "why";
+
+console.log(test); // {locale: 'zh-CN', age: 18, #name: 'why'}
+console.log(test.#name);  // 报错
+test.say(); // sayHello
+test.#sayHello();  // 报错
+
+console.log(test.height); // 1.88
+console.log(test.address);  // beijing
+```
+
+![image-20250302120419356](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250302120419356.png)
+
+
+
+
+
 
 
 ### URL编码和解码
@@ -708,17 +797,16 @@ bar = bar || 'default'
 true && console.log('hhh')
 ```
 
-- ?? :  0和空字符串 不视为假值
+- #### ??
 
+  - 空值合并运算符
+  - 当??左侧是null或undefined时，返回右侧的值
+  - **|| 还会将 「0、 false、 ''」视为假值，而 ?? 只关注null和undefined**
 - `||=`  
--  `??=` 
+- `??=` 
 - `&&=`
 
-- 【"23"转为 23 ：可以在前面加上加号】
-
 ```js
-console.log(+'23')  // 23
-
 // 数字常用方法:
 Number.isInteger()
 Number.parseInt()
@@ -788,6 +876,29 @@ new Intl.DateTimeFormat(locale, options).format(now)  // 2025年02月22日星期
 ```
 
 - 数字国际化 `new Intl.NumberFormat(navigator.language, options).format(num)`
+
+
+
+- 获取时间范围的具体日期
+
+```js
+// 近一个月日期
+const today = new Date()
+const pastDate = new Date(today)
+const yesterday = new Date(today)
+pastDate.setDate(today.getDate() - 30)
+yesterday.setDate(today.getDate() - 1)
+
+
+const formatDate = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+	return `${year}-${month}-${date}`
+}
+```
+
+
 
 
 
@@ -984,7 +1095,31 @@ element.scrollIntoView({
 
 
 
-### Promise实践
+### 异步javascript
+
+```js
+const img = document.querySelector('.dog')
+img.src = 'dog.jpg'  // 异步
+img.addEventListener('load', () => {
+  img.classList.add('fadeIn')
+})
+```
+
+
+
+.then接收的函数return一个promise，会进行状态移交
+
+
+
+回调地狱  ==》 then链 ==》async、 await
+
+
+
+
+
+
+
+
 
 - **并行生成图片** Promise.all()
 
@@ -1017,10 +1152,13 @@ function handleGeneratePic() {
 
 
 
-### 掷骰子游戏
 
-```js
-```
+
+
+
+
+
+
 
 
 
@@ -1795,24 +1933,6 @@ const handleFileChange = async (event: any) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-# Typescript
-
-#### ??
-
-- 空值合并运算符
-- 当??左侧是null或undefined时，返回右侧的值
-- **|| 还会将 「0、 false、 ''」视为假值，而 ?? 只关注null和undefined**
 
 
 
