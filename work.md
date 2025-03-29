@@ -1,10 +1,48 @@
-p82-86，掷骰子游戏  
+css媒体查询如何实现 暗黑模式 
+
+
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250329120513517.png" alt="image-20250329120513517" style="zoom:30%;" />
+
+
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250329123108221.png" alt="image-20250329123108221" style="zoom:33%;" /> 
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250329123325082.png" alt="image-20250329123325082" style="zoom:33%;" />
+
+ 代码特性开关、KV服务推送配置
+
+
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250329125121453.png" alt="image-20250329125121453" style="zoom:33%;" />  
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250329125154740.png" alt="image-20250329125154740" style="zoom:33%;" />
+
+
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250329125336687.png" alt="image-20250329125336687" style="zoom:33%;" />
+
+
+
+**日志**是“点”，**追踪**是“线”，**度量**是“面”  
+
+
+
+
+
+
+
+
+
+ p82-86，掷骰子游戏  
 
 地图程序实现 class
 
+食谱程序实现 mvc
 
 
 
+# 小技巧
 
 - 代码逻辑没问题就检查写法
 - localhost对应127.0.0.1
@@ -43,14 +81,14 @@ const { deposits, withdraws } = accounts.flatMap(acc => acc.movements)
 - 在bigint出现前js可以表示的最大数字  `2**53 - 1`，超过这个数表示不准确
   - 表示：Number.MAX_SAFE_INTEGER
 
-- 数字转字符串除了` + ‘’`；也可以使用模板字符串包装下 
+- **数字转字符串除了` + ‘’`；也可以使用模板字符串包装下** 
 
 ```js
 123 + ''
 `${123}`
 ```
 
-- 字符串转数字，前面添加 `+`
+- **字符串转数字，前面添加 `+`**
 
 ```js
 console.log(+'23')  // 23
@@ -67,6 +105,7 @@ vscode
 
 - command+k  清除终端 
 - Command + j 打开终端 
+- Command + d 同时选中同一个变量，可进行编辑
 - javascript查看时间差
 
 ```js
@@ -78,9 +117,28 @@ console.timeLog(timer, 'node 1 completed')
 console.timeEnd(timer)
 ```
 
+- 命令行创建文件夹：mkdir  xxx
+- 命令行删除文件夹：rmdir  xxx
+- 命令行创建文件：touch xxx.js 
+- 命令行删除文件：rm xxx.js 
 
 
 
+Json placeholder 提供了一些后端接口
+
+
+
+
+
+代码架构
+
+- 业务逻辑
+- 状态state
+- 网络请求库
+- 应用程序逻辑
+- ui侧
+
+![image-20250319144400996](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250319144400996.png)
 
 
 
@@ -390,6 +448,7 @@ console.log(arr)  // [empty x 5]
 // fill方法
 arr.fill(1) ==> [1,1,1,1,1]
 arr.fill(23, 3, 5) ==>  [1,1,1,23,23] // 索引[3,5)填充为23
+
 
 2、Array.from()
 Array.from({ length: 5}, () => 1)  // [1,1,1,1,1]
@@ -1095,7 +1154,7 @@ element.scrollIntoView({
 
 
 
-### 异步javascript
+### 异步JS
 
 ```js
 const img = document.querySelector('.dog')
@@ -1111,7 +1170,13 @@ img.addEventListener('load', () => {
 
 
 
-回调地狱  ==》 then链 ==》async、 await
+回调地狱  ---》 then链 ---》async、 await
+
+
+
+在js module中，可以在顶层使用await ，不需要在async函数中
+
+-  会阻止整个模块的代码执行 
 
 
 
@@ -1149,6 +1214,36 @@ function handleGeneratePic() {
 ```
 
 
+
+
+
+
+
+# Typescript
+
+```ts
+const input = document.getElementById('input') as HTMLInputElement
+```
+
+
+
+定义变量时如果有赋值，会有类型推导，不必要加类型
+
+如果未赋值，有必要加类型
+
+```js
+let num = 1
+// let num: number = 1 没必要
+
+let num: number
+num = 1
+```
+
+
+
+
+
+as unknown as AxiosRequestHeaders 双重类型断言，绕过ts的类型检查，将对象强制转为目标类型
 
 
 
@@ -1227,12 +1322,6 @@ border-radius: 50%
 // 元素不响应点击事件
 pointer-events: none
 ```
-
-
-
-
-
-
 
 
 
