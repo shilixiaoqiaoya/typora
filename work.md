@@ -1,7 +1,5 @@
 css媒体查询如何实现 暗黑模式 
 
-
-
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250329120513517.png" alt="image-20250329120513517" style="zoom:30%;" />
 
 
@@ -96,6 +94,16 @@ console.log(+'23')  // 23
 
 - Number.parseInt()  Number.parseFloat() 
 - `getComputedStyle(element)`  可以获取到该dom的所有样式
+
+
+
+-  事件委托： 1️⃣给父元素绑定事件 2️⃣ 构造函数的原型 也是多个实例将方法委托到原型对象上
+
+- `crypto.randomUUID()`是js的一个方法，生成唯一标识符
+
+
+
+
 
 
 
@@ -1174,9 +1182,33 @@ img.addEventListener('load', () => {
 
 
 
-在js module中，可以在顶层使用await ，不需要在async函数中
+在js module中，可以在顶层使用await ，不需要在async函数中，会阻止整个模块的代码执行 
 
--  会阻止整个模块的代码执行 
+
+
+- async/await的异常处理
+
+```
+const fn = async () => {
+	try {
+	
+	} catch(err) {
+	
+	}
+}
+```
+
+- 异步函数也可以IIFE（立即执行函数
+
+```js
+(asycn function() {
+  try {
+    await xxx
+  } catch(err) {
+    console.error(err)
+  }
+})()
+```
 
 
 

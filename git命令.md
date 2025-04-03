@@ -1,4 +1,4 @@
-git reset --hard  保持本地分支和远程分支的一致性，本地未push到远端的会丢失
+git reset --hard  保持本地分支和远程分支的一致性，本地未push到远端的代码会丢失
 
 
 
