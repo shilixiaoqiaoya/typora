@@ -4,11 +4,9 @@
 
 
 
-
-
 # Udemy Jonas
 
-### component composition
+#### component composition
 
 - 利用chilren prop的特性
 - 封装高复用性和灵活的组件
@@ -68,39 +66,98 @@ function App() {
 
 
 
+#### 封装星级评分组件
+
+- 展示几颗星 ：maxRating ，默认值5
+- 点击第几颗星对应展示几级，对应有几颗实心星
+- 当在星上hover时，展示对应级别，如果没有点击动作，鼠标移走后保持之前的星级
+  - **mouseenter和mouseleave事件**
+
+```js
+function StarRating({ maxRating = 5, onSetRating }) {
+  const [rating, setRating] = useState(0)
+  const [tmpRating, setTmpRating] = useState(0)
+  const handleSetRating = (rating) => {
+    setRating(rating)}
+  	onSetRating(rating)
+  }
+  return (
+  	<div>
+    	<div>
+    		{Array.from({length: maxRating}, (_, i) => {
+          <Star key={i} 
+          	onRate={() => handleSetRating(i+1)
+    				full={tmpRating ? tmpRating >= i+1 : rating >= i+1}
+					 	onHoverIn={() => setTmpRating(i+1)}
+            onHoverOut={() => setTmpRating(0)}
+					/>
+        })}
+    	</div>
+			<p>{tmpRating || rating || ''}</p>
+    </div>
+  )
+}
+
+function Star({ onRate, full, onHoverIn, onHoverOut }) {
+  return (
+  	<span role='button' 
+    			onClick={onRate}
+					onMouseEnter={onHoverIn}
+					onMouseLeave={onHoverOut}
+		>
+    	{full ? <full-star-svg> : <empty-star-svg>}
+    </span>
+  )
+}
+```
+
+- 使用StarRating组件时，想知道组件的内部状态rating的值，怎么做？
+
+```js
+function Test() {
+  const [testRating, setTestRating] = useState(0)
+  return (
+  	<StarRating onSetRating={setTestRating}/>	
+		<p>This movie was rated {testRating} stars</p>
+  )
+}
+```
 
 
 
 
 
+#### 界面呈现过程
+
+- component ==>  react element  ==> dom element
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406175844827.png" alt="image-20250406175844827" style="zoom:40%;" />
+
+- trigger触发渲染 ==》 render阶段 ==》 提交阶段 ==》 浏览器绘制
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406180217414.png" alt="image-20250406180217414" style="zoom:33%;" />     
+
+- react内部render阶段，得到一颗更新后的fiber tree，和一系列dom更新的list
+- 是异步的
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406182339926.png" alt="image-20250406182339926" style="zoom:40%;" />
 
 
 
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406181849319.png" alt="image-20250406181849319" style="zoom:33%;" />
 
 
 
+- 提交阶段：是同步的，为了保持数据和ui的一致性
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406182829093.png" alt="image-20250406182829093" style="zoom:33%;" />
 
 
 
+#### 函数式组件
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- 呈现逻辑（顶层的代码
+- 事件处理函数，可以做非纯函数的操作
 
 
 
@@ -152,6 +209,27 @@ function App() {
 - **将jsx转换成js代码的工具**
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250330105633613.png" alt="image-20250330105633613" style="zoom:33%;" />
+
+
+
+### 库与框架
+
+- vue、angular是框架
+- react是库，可以自由选择其他第三方库来搭建应用
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406211258992.png" alt="image-20250406211258992" style="zoom:33%;" />
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -735,6 +813,221 @@ function App() {
   )
 }
 ```
+
+
+
+
+
+### state
+
+- **批处理更新**，每个状态的更新是异步的，不是立即更新
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406192904294.png" alt="image-20250406192904294" style="zoom:40%;" />
+
+- 上图的console打印的answer还是旧值，只有在重新渲染后，才可以获得新值
+
+```js
+setLike(like+1)
+setLike(like+1)
+setLike(like+1) // like只会加1 
+
+setLike((like) => like+1)
+setLike((like) => like+1)
+setLike((like) => like+1)  // like会加3
+```
+
+
+
+- react18之前，只支持在事件处理函数中批处理更新状态
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406193335517.png" alt="image-20250406193335517" style="zoom:33%;" />
+
+
+
+### 事件处理
+
+- React中所有事件都被绑定在根元素上（事件委托）
+
+- react中事件对象不同于原生js的event，它抹平了不同浏览器之间的差异性，是一个**「合成事件对象**」
+
+  区别：合成事件比如focus、blur、change会冒泡，原生js不会
+
+- 捕获阶段的click事件名称 onClickCapture
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406205540615.png" alt="image-20250406205540615" style="zoom:33%;" />
+
+
+
+
+
+# hook
+
+### useState
+
+- **参数：初始化值，如果不设置为undefined**
+- **返回值：数组，包含两个元素**
+  - **元素一：当前状态的值**
+  - **元素二：设置状态值的函数**
+- **【一般来说，在函数退出后变量就会消失，而state中的变量会被React保留】**
+
+```jsx
+import React, { useState } from 'react'
+
+export default function CouterHook() {
+  const [count, setCount] = useState(0)
+  
+  return (
+    <div>
+      <h2>当前计数：{count}</h2>
+      <button onClick={e => setCount(count + 1)}>+1</button>
+      <button onClick={e => setCount(count - 1)}>-1</button>
+    </div>
+  )
+}
+```
+
+- 修改学生年龄
+
+```jsx
+import { useState } from 'react'
+
+export default function Student() {
+  const [students, setStudents] = useState([
+    {id: 1, name: 'coderwhy', age: 18},
+    {id: 2, name: 'kobe', age: 40},
+    {id: 3, name: 'james', age: 29}
+  ])
+  
+	// map更好
+  function addStudentAge(index) {
+    const newStudents = [...students]
+    newStudents[index].age += 1
+    setStudents(newStudents)
+  }
+  return (
+    <div>
+      <ul>
+        {
+          students.map((item, index) => {
+            return (
+              <li key={item.id}>
+                姓名：{item.name}
+                年龄：{item.age}
+                <button onClick={e => addStudentAge(index)}>年龄+1</button>
+              </li>
+            )
+          })
+        }
+      </ul>
+    </div>
+  )
+}
+```
+
+
+
+- 减少不必要useState的使用，下方例子「商品数量」和「商品价格」从购物车可以derive
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250402162931149.png" alt="image-20250402162931149" style="zoom:33%;" />
+
+
+
+-   sortedItems是 items derive的，学习排序时sort方法的巧妙用法
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250402170503953.png" alt="image-20250402170503953" style="zoom:40%;" />
+
+
+
+- 需要考虑好state放置的位置，放在自身组件，还是进行**状态提升**放在父组件上
+  - 一个组件的显示隐藏，交由父组件控制
+- setState的参数可以是state，**可以是函数**（需注意**数据的不可变性**）
+  - 数组push操作改为  [...state, item]
+  - 如果state是一个数组，它存储多个对象，想修改某个对象的某个属性，利用数组的map方法
+  - 数组操作，先把数组copy一份:   ().slice().sort()
+
+
+
+
+
+
+
+
+
+### useEffect
+
+- 组件挂载时发送发送网络请求
+
+```js
+useEffect(() => {
+  fetch('xxx').then(res => res.json()).then(data => console.log(data))
+}, [])
+
+// 使用async/await
+useEffect(() => {
+  async function fetchMovies() {
+    const res = await fetch('xxx')
+    const data = await res.json()
+		console.log(data)
+  }
+  fetchMovies()
+}, [])
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+- **可以模拟类组件的生命周期函数，但是它功能更强大**
+- **类似于网络请求、一些事件的监听，都是React更新DOM的副作用（Side Effects）**
+- **在函数式组件中，可以有多个useEffect，允许开发者按照代码的用途分离它们，React将按照effect声明的顺序依次调用每一个effect**
+
+```jsx
+// 将网页title设置为count值
+import { useEffect, useState } from 'react'
+export default function() {
+  const [count, setCount] = useState(0)
+  
+  useEffect(() => {
+    document.title = count
+  })  
+    
+  return (
+    <div>
+      <h2>{count}</h2>
+      <button onClick={e => setCount(count + 1)}>+1</button>
+    </div>
+  )
+}
+```
+
+- **第一个参数为函数，每次重新渲染完会执行，相当于componentDidMount和componentDidUpdate**
+
+- **该函数有一个返回值，是一个函数，会在组件更新和卸载时执行，在此可以做一些清除工作，比如取消订阅**
+
+  **这是effect可选的清除机制，每个effect都会返回一个清除函数，这样可以将添加和移除订阅的逻辑放在一起，代码内聚性更强**
+
+- **第二个参数：一个数组，只有数组中的state发生变化时，effect才会执行**
+
+- **如果effect不希望依赖任何state时，可以传入一个空数组，此时两个回调函数对应componentDidMount和componentWillUnmount**
+
+```jsx
+useEffect(() => {
+    // 在此可以执行任何带副作用操作
+    return () => {  
+      // 在此可以做一些清除工作
+    }
+}, [count])  // 如果是[], 回调函数相当于componentDidMount
+```
+
+
 
 
 
@@ -2922,142 +3215,7 @@ root.render(
 
 
 
-### useState
 
-- **参数：初始化值，如果不设置为undefined**
-- **返回值：数组，包含两个元素**
-  - **元素一：当前状态的值**
-  - **元素二：设置状态值的函数**
-- **【一般来说，在函数退出后变量就会消失，而state中的变量会被React保留】**
-
-```jsx
-import React, { useState } from 'react'
-
-export default function CouterHook() {
-  const [count, setCount] = useState(0)
-  
-  return (
-    <div>
-      <h2>当前计数：{count}</h2>
-      <button onClick={e => setCount(count + 1)}>+1</button>
-      <button onClick={e => setCount(count - 1)}>-1</button>
-    </div>
-  )
-}
-```
-
-- 修改学生年龄
-
-```jsx
-import { useState } from 'react'
-
-export default function Student() {
-  const [students, setStudents] = useState([
-    {id: 1, name: 'coderwhy', age: 18},
-    {id: 2, name: 'kobe', age: 40},
-    {id: 3, name: 'james', age: 29}
-  ])
-  
-	// map更好
-  function addStudentAge(index) {
-    const newStudents = [...students]
-    newStudents[index].age += 1
-    setStudents(newStudents)
-  }
-  return (
-    <div>
-      <ul>
-        {
-          students.map((item, index) => {
-            return (
-              <li key={item.id}>
-                姓名：{item.name}
-                年龄：{item.age}
-                <button onClick={e => addStudentAge(index)}>年龄+1</button>
-              </li>
-            )
-          })
-        }
-      </ul>
-    </div>
-  )
-}
-```
-
-
-
-- 减少不必要useState的使用，下方例子「商品数量」和「商品价格」从购物车可以derive
-
-![image-20250402162931149](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250402162931149.png)
-
-
-
--   sortedItems是 items derive的，学习排序时sort方法的巧妙用法
-
-![image-20250402170503953](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250402170503953.png)
-
-
-
-- 需要考虑好state放置的位置，放在自身组件，还是进行**状态提升**放在父组件上
-  - 一个组件的显示隐藏，交由父组件控制
-- setState的参数可以是state，**可以是函数**（需注意**数据的不可变性**）
-  - 数组push操作改为  [...state, item]
-  - 如果state是一个数组，它存储多个对象，想修改某个对象的某个属性，利用数组的map方法
-  - 数组操作，先把数组copy一份:   ().slice().sort()
-
-
-
-
-
-
-
-
-
-
-
-### useEffect
-
-- **可以模拟类组件的生命周期函数，但是它功能更强大**
-- **类似于网络请求、一些事件的监听，都是React更新DOM的副作用（Side Effects）**
-- **在函数式组件中，可以有多个useEffect，允许开发者按照代码的用途分离它们，React将按照effect声明的顺序依次调用每一个effect**
-
-```jsx
-// 将网页title设置为count值
-import { useEffect, useState } from 'react'
-export default function() {
-  const [count, setCount] = useState(0)
-  
-  useEffect(() => {
-    document.title = count
-  })  
-    
-  return (
-    <div>
-      <h2>{count}</h2>
-      <button onClick={e => setCount(count + 1)}>+1</button>
-    </div>
-  )
-}
-```
-
-- **第一个参数为函数，每次重新渲染完会执行，相当于componentDidMount和componentDidUpdate**
-
-- **该函数有一个返回值，是一个函数，会在组件更新和卸载时执行，在此可以做一些清除工作，比如取消订阅**
-
-  **这是effect可选的清除机制，每个effect都会返回一个清除函数，这样可以将添加和移除订阅的逻辑放在一起，代码内聚性更强**
-
-- **第二个参数：一个数组，只有数组中的state发生变化时，effect才会执行**
-
-- **如果effect不希望依赖任何state时，可以传入一个空数组，此时两个回调函数对应componentDidMount和componentWillUnmount**
-
-```jsx
-useEffect(() => {
-    // 在此可以执行任何带副作用操作
-    return () => {  
-      // 在此可以做一些清除工作
-    }
-}, [count])  // 如果是[], 回调函数相当于componentDidMount
-```
 
 
 
