@@ -4,9 +4,17 @@
 
 
 
+vue的watch对应useEffect???
+
+computed对应derived state???
+
+
+
+
+
 # Udemy Jonas
 
-#### component composition
+### component composition
 
 - 利用chilren prop的特性
 - 封装高复用性和灵活的组件
@@ -66,7 +74,7 @@ function App() {
 
 
 
-#### 封装星级评分组件
+### 封装星级评分组件
 
 - 展示几颗星 ：maxRating ，默认值5
 - 点击第几颗星对应展示几级，对应有几颗实心星
@@ -127,7 +135,7 @@ function Test() {
 
 
 
-#### 界面呈现过程
+### 界面呈现过程
 
 - component ==>  react element  ==> dom element
 
@@ -151,21 +159,6 @@ function Test() {
 - 提交阶段：是同步的，为了保持数据和ui的一致性
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406182829093.png" alt="image-20250406182829093" style="zoom:33%;" />
-
-
-
-#### 函数式组件
-
-- 呈现逻辑（顶层的代码
-- 事件处理函数，可以做非纯函数的操作
-
-
-
-
-
-
-
-
 
 
 
@@ -836,11 +829,36 @@ setLike((like) => like+1)
 setLike((like) => like+1)  // like会加3
 ```
 
-
-
 - react18之前，只支持在事件处理函数中批处理更新状态
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406193335517.png" alt="image-20250406193335517" style="zoom:33%;" />
+
+
+
+##### 异步
+
+```js
+// 事件处理函数中处理localStorage逻辑
+function handleAddWatched(movie) {
+  setWatched((watched) => [...watched, movie])
+  // 在handleAddWatched函数执行完watched才会更新
+  localStorage.setItem('watched', JSON.stringify(watched))   // 不可行，此时获取的watched是旧的
+  localStorage.setItem('watched', JSON.stringify([...watched, movie]))   // 可行
+}
+
+// 利用useEffect存储
+useEffect(function() {
+  localStorage.setItem('watched', JSON.stringify(watched))
+}, [watched])
+```
+
+
+
+
+
+
+
+
 
 
 
@@ -861,6 +879,20 @@ setLike((like) => like+1)  // like会加3
 
 
 # hook
+
+### 基本使用
+
+- **只能在函数式组件或自定义hook的顶层使用，不可以在条件语句、循环语句使用**
+- **不可以在return语句之后使用hook**
+- *「需要保证一个组件中所有hook在每次渲染时都按照相同的顺序去调用」*，如果在条件语句中使用hook，在每次重新渲染时hook调用顺序可能被打乱
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250410113545554.png" alt="image-20250410113545554" style="zoom:40%;" />
+
+- 为什么要保证hook顺序不打乱呢？？？
+
+
+
+
 
 ### useState
 
@@ -945,7 +977,13 @@ export default function Student() {
   - 如果state是一个数组，它存储多个对象，想修改某个对象的某个属性，利用数组的map方法
   - 数组操作，先把数组copy一份:   ().slice().sort()
 
+- useState传入函数来进行初始化
 
+  ```js
+  
+  ```
+
+  
 
 
 
@@ -972,18 +1010,6 @@ useEffect(() => {
   fetchMovies()
 }, [])
 ```
-
-
-
-
-
-
-
-
-
-
-
-
 
 - **可以模拟类组件的生命周期函数，但是它功能更强大**
 - **类似于网络请求、一些事件的监听，都是React更新DOM的副作用（Side Effects）**
@@ -1028,6 +1054,23 @@ useEffect(() => {
 ```
 
 
+
+
+
+### useRef
+
+- **一个变量，不被呈现在界面上，修改它时不会触发界面的重新渲染；同时变量需要在每次渲染之间是持久的**
+
+  **这时选择useRef来定义变量**
+
+- 在useEffect中修改ref值
+
+```js
+const countRef = useRef(0)
+useEffect(() => {
+  if(userRating) countRef.current ++
+}, [userRating])
+```
 
 
 

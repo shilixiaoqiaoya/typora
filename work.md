@@ -1214,10 +1214,6 @@ const fn = async () => {
 
 
 
-
-
-
-
 - **并行生成图片** Promise.all()
 
 ```js
@@ -1243,6 +1239,51 @@ function handleGeneratePic() {
     	imgShowSrc.value = imgSrcList[0]
     })
 }
+```
+
+
+
+
+
+
+
+### iframe通信
+
+- 基本通信
+  - **为什么在父窗口是iframe.contentWindow.postMessage，类似发邮件时需标明接收方**
+
+```js
+// 父窗口
+const iframe = document.getElementById('myIframe')
+iframe.contentWindow.postMessage('hello from parent', '*')  //  *表示不限制目标域
+
+window.addEventListener('message', (event) => {
+  console.log('parent received', event.data)
+})
+
+// iframe
+window.parent.postMessage('hello from iframe', '*')
+window.addEventListener('message', (event) => {
+  console.log('iframe received', event.data)
+})
+```
+
+- 在嵌套 iframe 的场景中（A → B → C），当 B 同时监听来自父窗口 A 和子 iframe C 的 `message` 事件时，
+
+  **可以通过`event.source`区分消息来源**
+
+```js
+window.addEventListener('message', (event) => {
+  // 判断消息来自父窗口A
+  if(event.source === window.parent) {
+    console.log('消息来自父窗口A', event.data)
+  }
+  // 判断消息来自子窗口C
+  const iframeC = document.getElementById('iframeC')
+  if(iframeC && event.source === iframeC.contentWindow) {
+    console.log('消息来自子窗口C', event.data)
+  }
+})
 ```
 
 
@@ -1782,8 +1823,8 @@ base64的dataurl
 ### 基本流程
 
 - 用户选择图片
-- 前端将图片转换为合适的格式
-- 通过HTTP请求将图片传输到后端
+- 前端将图片上传到云端
+- 通过HTTP请求将图片url传输到后端
 - 后端接收并处理图片
 
 
@@ -1859,15 +1900,13 @@ axios
 ### FileReader
 
 - FileReader对象允许web应用程序异步读取存储在用户计算机上的文件（或原始数据缓冲区）的内容，使用File或Blob对象指定要读取的文件或数据
-- **FileReader也就是将本地文件转换成base64格式的dataUrl**
+- **【FileReader也就是将本地文件转换成base64格式的dataUrl】**
 - base64
   - 一种基于64个可打印字符来表示二进制数据的表示方法
 
 ```javascript
 const reader = new FileReader()
 ```
-
-
 
 - 0：empty，还没有加载任何数据
 - 1：loading，数据正在被加载
@@ -1886,7 +1925,7 @@ FileReader.error
 **FileReader.readAsDataURL()**
 
 - 开始读取指定的Blob中的内容
-- 一旦完成，result属性中将包含一个data:URL格式的字符串以表示所读取文件的内容
+- **一旦完成，result属性中将包含一个data:URL格式的字符串以表示所读取文件的内容【base64】**
 
 ```javascript
 let file = files[0]
@@ -1907,7 +1946,7 @@ fileReader.onload = () => {
 
 ### Blob对象
 
-- 一个二进制对象
+- **一个二进制对象**
 - 一个blob对象表示一个不可变的，原始数据的类似文件对象
 - File基于Blob，继承blob功能并将其扩展为支持用户系统上的文件
 
@@ -1923,10 +1962,19 @@ fileReader.onload = () => {
 
 ### URL.createObjectURL(object)
 
-- 返回值是当前文件的内存url地址
-- 该地址存在于当前document内，可以通过revokeObjectURL()手动清除
-- 该方法是同步的，直接返回url地址
+- **返回一个临时指向内存中Blob对象的URL地址**
+
+```js
+blob:http://example.com/550e8400-e29b-41d4-a716-446655440000
+// 或
+blob:null/550e8400-e29b-41d4-a716-446655440000（本地环境）
+```
+
 - 使用完url后，需要手动释放内存，URL.revokeObjectURL(objectURL)
+
+
+
+
 
 
 
@@ -2021,6 +2069,87 @@ const handleFileChange = async (event: any) => {
   nextTick(() => isShowImgLoading.value = false )
 }
 ```
+
+
+
+
+
+### 图片压缩
+
+- 利用canvas.toDataURL()实现有损压缩，适合照片类图片
+
+```js
+const compressImage = (base64, rate = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.src = base64
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      let width = img.width
+      let height = img.height
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if(!ctx) {
+        reject(new Error('failed to get canvas context'))
+        return
+      }
+      ctx.drawImage(img, 0, 0, width, height)
+      const compressedBase64 = canvas.toDataURL('image/jpeg', rate)
+      const compressedSize = Math.round(compressedBase64.length * 0.75)
+      const compressedImage = {
+        base64: compressedBase64,
+        size: compressedSize
+      }
+      resolve(compressedImage)
+    }
+    img.onError = () => {
+      reject(new Error('failed to load image'))
+    }
+  })
+}
+```
+
+- 利用canvas.toBlob实现图片压缩【推荐】
+  - 直接操作二进制数据，避免了base64编码的性能开销
+
+```js
+const compressImage = (base64, rate = 0.8) => {
+  return new Promise((resole, reject) => {
+    const img = new Image()
+    img.src = base64
+    img.onload = () => {
+       const canvas = document.createElement('canvas')
+       let width = img.width
+    	 let height = img.height
+       canvas.width = width
+    	 canvas.height = height
+       const ctx = canvas.getContext('2d')
+       if(!ctx) {
+          reject(new Error('failed to get canvas context'))
+          return
+       }
+       ctx.drawImage(img, 0, 0, width, height)
+       canvas.toBlob((blob) => {
+         if(!blob) {
+           reject(new Error('failed to get blob'))
+           return
+				 }
+         resolve({
+           blob,
+           url: URL.createObjectURL(blob)
+           size: blob.size
+         })
+       }, 'image/jpeg', rate)
+    }
+    img.onError = () => {
+      reject(new Error('failed to load image'))
+    }
+  })
+}
+```
+
+
 
 
 

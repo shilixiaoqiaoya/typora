@@ -23,6 +23,86 @@
 
 
 
+
+
+## 开放封闭原则
+
+- 软件应该对扩展开放，对修改关闭
+- 以乐高玩具举例
+  - 可以随时添加新积木，比如加个轮子或飞机翼
+  - 不能拆掉已有的积木（修改原有代码）
+
+#### 反例
+
+- 假设有一个计算面积的函数，每次新增一种图形都需要修改代码
+
+```js
+function calculateArea(shape) {
+  if(shape.type === 'circle') {
+    return Math.PI * shape.radius ** 2 
+  } else if(shape.type === 'square') {
+    return shape.size * shape.size
+  } else {
+    ...
+  }
+}
+```
+
+#### 修正
+
+- 通过抽象+多态，未来新增图形时只需扩展类，无需修改原有函数
+
+```js
+// 抽象基类，对修改关闭
+class Shape {
+  area() {
+    throw new Error('子类必须实现area方法')
+  }
+}
+// 扩展子类，对扩展开放
+class Circle extends Shape {
+  constructor(radius) {
+    super()
+    this.radius = radius
+  }
+  area() {
+    return Math.PI * this.radius ** 2 
+  }
+}
+
+class Square extends Shape {
+  constructor(size) {
+    super()
+    this.size = size
+  }
+  area() {
+    return this.size * this.size
+  }
+}
+// 使用时无需修改代码
+function calculateArea(shape) {
+  return shape.area()
+}
+const circle = new Circle(5);
+const square = new Square(10);
+console.log(calculateArea(circle)); // 78.54
+console.log(calculateArea(square)); // 100
+```
+
+- 减少风险：修改原有代码可能引入bug，不动原有逻辑最安全
+- 提高可维护性：新增功能时，只需添加新代码，而不是在旧代码里‘打补丁’
+- 解耦合：各功能独立，通过接口/抽象类交互
+
+
+
+
+
+
+
+
+
+
+
 ## 工厂模式
 
 #### 构造器模式
@@ -324,4 +404,220 @@ fnDecorator(Button.prototype, 'fn', Object.getOwnPropertyDescriptor(Button.proto
 ## 适配器模式
 
 
+
+
+
+## 代理模式
+
+- 在dns解析过程中，某些域名被禁止解析，比如google
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250410165801424.png" alt="image-20250410165801424" style="zoom:50%;" />
+
+- 使用vpn访问google
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250410165636958.png" alt="image-20250410165636958" style="zoom:50%;" />
+
+#### 保护代理
+
+ES6的proxy，可以在对象某属性get和set时被拦截
+
+
+
+
+
+#### 事件代理
+
+- 事件委托，利用事件冒泡特性
+
+
+
+#### 缓存代理
+
+- 应用在计算量较大的场景里，采用**以空间换时间**
+- 对于某个已经计算过的值，不想再耗时进行二次计算，希望可以进行存储，此时需要一个代理在计算的同时，进行计算结果的缓存
+
+```js
+const addAll = function(...nums) {
+	return nums.reduce((sum, cur) =>  sum + cur, 0)
+}
+
+// 为什么要利用自执行函数？new Map()只期望执行一次
+const proxyAddAll = (function(){
+  const resultCache = new Map()
+  return function(...nums) {
+    const key = JSON.stringify(nums)
+    if(resultCache.has(key)) {
+      return resultCache.get(key)
+    }
+    const result = addAll(...nums)
+    resultCache.set(key, result)
+    return result
+  }
+})()
+console.log(proxyAddAll(1, 2, 3)); // 首次计算，输出 6
+console.log(proxyAddAll(1, 2, 3)); // 命中缓存，直接返回 6
+```
+
+
+
+#### 虚拟代理
+
+- **用一个轻量对象（代理）控制对重量对象（真实图片）的访问**
+
+##### 图片预加载
+
+- **核心：【先显示占位图，等真实图片加载完成后再替换】**
+- 真实对象：需要加载的大图
+- 代理对象：轻量的占位图
+
+```js
+// 定义真实图片加载器
+class RealImage {
+  constructor(url) {
+    this.url = url
+  }
+  load() {
+    const img = new Image()
+    img.src = this.url
+    return img
+  }
+}
+// 定义虚拟代理
+class ImageProxy {
+  constructor(url, placeholderUrl) {
+    this.url = url
+    this.placeholderUrl = placeholderUrl
+    this.realImage = null
+  }
+  load() {
+    if(!this.realImage) {
+      // 缩略图占位
+      const placeholder = new Image()
+      placeholder.src = this.placeholderUrl
+      document.body.appendChild(placeholder)
+      // 加载真实图片，加载之后代替缩略图
+      this.realImage = new RealImage(this.url)
+      const realImg = this.realImage.load()
+      realImg.load = () => {
+        document.body.replaceChild(realImg, placeholder)
+      }
+      return this.realImage
+    }
+  }
+}
+// 使用代理
+const proxy = new ImageProxy('realUrl', 'fakeUrl')
+proxy.load()
+```
+
+
+
+
+
+##### canvas离屏渲染
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250410193541086.png" alt="image-20250410193541086" style="zoom:50%;" />
+
+```js
+<!-- 可见 Canvas -->
+<canvas id="main-canvas"></canvas>
+<!-- 离屏 Canvas（隐藏） -->
+<canvas id="offscreen-canvas" style="display: none;"></canvas>
+
+// 预加载阶段
+const offscreenCanvas = document.getElementById('offscreen-canvas');
+const offscreenCtx = offscreenCanvas.getContext('2d');
+// 1. 在离屏 Canvas 上绘制复杂内容, 耗时操作
+offscreenCtx.fillStyle = 'red';
+offscreenCtx.fillRect(0, 0, 300, 150); 
+// 2. 完成后复制到主 Canvas
+const mainCanvas = document.getElementById('main-canvas');
+const mainCtx = mainCanvas.getContext('2d');
+mainCtx.drawImage(offscreenCanvas, 0, 0); // 瞬间完成
+```
+
+
+
+
+
+
+
+
+
+
+
+## 策略模式
+
+- **【将 if-else 改为更加优雅的映射方式】**
+
+```js
+// 处理预热价
+function prePrice(originPrice) {
+  if(originPrice >= 100) {
+    return originPrice - 20
+  } 
+  return originPrice * 0.9
+}
+
+// 处理大促价
+function onSalePrice(originPrice) {
+  if(originPrice >= 100) {
+    return originPrice - 30
+  } 
+  return originPrice * 0.8
+}
+
+function askPrice(tag, originPrice) {
+  // 处理预热价
+  if(tag === 'pre') {
+    return prePrice(originPrice)
+  }
+  // 处理大促价
+  if(tag === 'onSale') {
+    return onSalePrice(originPrice)
+  }
+}
+```
+
+使用对象来做映射：
+
+```js
+const priceMap = {
+  pre(originPrice) {
+    if(originPrice >= 100) {
+      return originPrice - 20
+    } 
+    return originPrice * 0.9
+  },
+  onSale(originPrice) {
+    if(originPrice >= 100) {
+      return originPrice - 30
+    } 
+    return originPrice * 0.8
+  }
+}
+function askPrice(tag, originPrice) {
+  return priceMap[tag](originPrice)
+}
+```
+
+
+
+
+
+
+
+## 发布-订阅模式
+
+- 观察者模式：没有第三方，发布者直接触及到订阅者
+
+- 发布-订阅：由第三方完成实际的通信，发布者不直接触及到订阅者
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250411155217476.png" alt="image-20250411155217476" style="zoom:50%;" />
+
+
+
+
+
+## 迭代器模式
 
