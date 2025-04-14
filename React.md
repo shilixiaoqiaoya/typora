@@ -1,4 +1,4 @@
-疑问1：
+ 疑问1：
 
 ![image-20250403144328316](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250403144328316.png)
 
@@ -16,7 +16,7 @@ computed对应derived state???
 
 ### component composition
 
-- 利用chilren prop的特性
+- 利用children prop的特性
 - 封装高复用性和灵活的组件
 
 ```js
@@ -164,7 +164,9 @@ function Test() {
 
 
 
+### 函数组件 vs 类组件
 
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250412100206070.png" alt="image-20250412100206070" style="zoom:40%;" />
 
 
 
@@ -308,6 +310,41 @@ root.render(<h2>Hello World</h2>)
     root.render(<App/>)
 </script>
 ```
+
+- 类组件的代码优化
+  - 将每个实例的变量可以提到外层写，比如state
+  - 函数改为箭头函数写法，解决this指向问题
+
+```js
+class App extends React.Component {
+  state = {
+     counter: 0
+  }
+  increment = () => {
+      this.setState({
+          counter: this.state.counter + 1
+      })
+  }	
+	decrement = () => {
+      this.setState({
+          counter: this.state.counter - 1
+      })
+  } 
+  render() {
+      return (
+          <div>
+            <h2>当前计数：{this.state.counter}</h2>
+            <button onClick={this.increment}>+</button>
+            <button onClick={this.decrement}>-</button>
+          </div>
+      )
+  }
+}
+```
+
+
+
+
 
 
 
@@ -610,9 +647,9 @@ import classNames from classnames
 
 ### 条件渲染
 
-- **if条件判断**
-- **三元运算符**
 - **与运算符&&：前面条件成立，渲染后面内容；前面条件不成立，不渲染后面内容**
+- **三元运算符**
+- **if条件判断**
 
 ```jsx
 <div id='app'></div>
@@ -1068,7 +1105,7 @@ useEffect(() => {
 ```js
 const countRef = useRef(0)
 useEffect(() => {
-  if(userRating) countRef.current ++
+  if(userRating) countRef.current++
 }, [userRating])
 ```
 
@@ -1076,130 +1113,812 @@ useEffect(() => {
 
 
 
+### custom hook
+
+- **在内部至少会调用一个react hook，否则只是一个常规函数 **
+- ① 对组件逻辑做抽离；② 封装可复用性高的hook  ③高阶hook
+
+##### 示例
+
+```js
+function useFetch(url) {
+  const [data, setData] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  useEffect(() => {
+    fetch(url).then(res => res.json()).then(res => setData(res))
+  }, [])
+  return [data, isLoading]
+}
+```
 
 
-# 阶段案例
+
+##### useLocalstorageState()
+
+- 在localstorage存值、取值
+
+```js
+import { useState, useEffect } from 'react'
+export function useLocalStorageState(initinalState, key) {
+  const [value, setValue] = useState(function() {
+    const storedValue = localStorage.getItem(key)
+    return storedValue ? JSON.parse(storedValue) : initinalState
+  })
+  
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(value))
+  }, [value, key])
+  
+  return [value, setValue]
+}
+```
+
+
+
+##### useKey()
+
+- 监听keydown事件，不同键做出不同事情
+
+```js
+import { useEffect } from 'react'
+export function useKey(key, action) {
+  useEffect(() => {
+    function callback(e) {
+      if(e.code.toLowerCase() === key.toLowerCase()) {
+        action()
+      }
+    }
+    document.addEventListener('keydown', callback)
+    
+    return () => {
+      document.removeEventListener('keydown', callback)
+    }
+  }, [action, key])
+}
+```
+
+
+
+
+
+
+
+# 状态管理
+
+- react中有哪几种管理状态的方式？
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250413140148959.png" alt="image-20250413140148959" style="zoom:40%;" />
+
+- 局部组件/全局组件、ui state / remote state
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250413140753864.png" alt="image-20250413140753864" style="zoom:40%;" />
+
+
+
+### useState()
+
+
+
+### useRef()
+
+
+
+### useReducer()
+
+- **【管理状态的另一种方式，适用于状态之间相互依赖 、有关联的场景】**
+- **将所有状态更新逻辑集中在一个位置 ，与组件逻辑解耦**
+- reducer要求是纯函数，不可以写网络请求的逻辑
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250412130911729.png" alt="image-20250412130911729" style="zoom:40%;" />
+
+- **reducer函数必须返回state，不可以返回null或undefined等**
+
+```js
+function reducer(state, action) {
+  switch(action.type) {
+    case 'inc':
+      return {...state, count: state.count + state.step}
+    case 'dec':
+      return {...state, count: state.count - state.step}
+    case 'setCount':
+      return {...state, count: action.payload}
+    case 'setStep':
+      return {...state, step: action.payload}
+    case 'setStep':
+    	return {count: 0, step: 0} 
+    default:
+      throw new Error('unknown action')
+  }
+}
+function DateCounter() {
+  const initState = {count: 0, step: 0}
+  const [state, dispatch] = useReducer(reducer, initState)
+  function handleInc() {
+    dispatch({ type: 'inc' })
+  }
+  function handleDec() {
+    dispatch({ type: 'dec' })
+  }
+  function defineCount(e) {
+    dispatch({ type: 'setCount', payload: +e.target.value})
+  }
+  function defineStep(e) {
+    dispatch({ type: 'setStep', payload: +e.target.value})
+  }
+  function reset() {
+    dispatch({ type: 'reset' })
+  }
+}
+```
+
+
+
+React Quiz示例「计时器」实现
+
+```js
+function Timer({ diapatch, secondsRemain}) {
+  const mins = Math.floor(secondsRemain / 60)
+  const seconds = secondsRemain % 60
+  
+  useeffect(() => {
+    cost timer = setInterval(() => {
+      dispatch({type: 'tick'})
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [dispatch])
+  
+  return (
+  	<div className='timer'>
+    	{mins < 10 && '0'}{mins}:{seconds < 10 && '0'}{seconds} 
+    </div>
+  )
+}
+// 当时间为0时，status需置为finished，通过三元运算符实现【❌ 第一想法又是if判断】
+case 'tick':
+	return {...state, 
+          secondsRemain: state.secondsRemain - 1, 
+          status:  state.secondsRemain === 0 ? 'finished' : state.status
+         }
+```
+
+
+
+
+
+
+
+### Context API
+
+- **React内置的跨组件数据共享方案，可以解决props drilling（属性透传）问题**
+- createContext()、useContext()
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250413114700931.png" alt="image-20250413114700931" style="zoom:40%;" />
+
+  ```js
+  // 1、创建context
+  const QueryContext = createContext()
+  
+  // 2、父组件提供数据
+  <QueryContext.Provider
+  	value = {{
+             searchQuery,
+             setSearchQuery
+            }}
+  >
+    ...
+  	...
+  </QueryContext.Provider>
+  
+  // 3、后代组件消费数据
+  const {searchQuery, setSearchQuery} = useContext(QueryContext)
+  ```
+
+
+
+- 将父组件中的「context逻辑」和「状态和状态更新 逻辑」进行抽离
+
+```js
+// 1、创建context
+const QueryContext = createContext()
+
+// 2、对Provider二次封装
+function QueryProvider({ children }) {
+  
+  // state和event handlers等逻辑......
+  
+  return (
+  	<QueryContext.Provider value = {{
+           searchQuery,
+           setSearchQuery
+          }}
+    >
+    	{children}
+    </QueryContext.Provider>
+  )
+}
+
+// 3、对useContext二次封装
+function useQuery() {
+  const context = useContext(QueryContext)
+  if(context === undefined) throw new Error('Context was used outside of the provider')
+  return context
+}
+
+export {QueryProvider, useQuery}
+```
+
+
+
+  
+
+
+
+### Context + reducer
+
+模拟用户身份验证
+
+```js
+const initState = {
+  user: null,
+  isValid: false
+}
+
+function reducer(state, action) {
+  switch(action.type) {
+    case 'login':
+      return {...state, user: action.payload, isValid: true}
+    case 'logout':
+      return initState
+    default:
+      throw new Error('unknown action')
+  }
+}
+
+const AuthContext = createContext()
+function AuthProvider({ children }) {
+  const [{user, isValid}, dispatch] = useReducer(reducer, initState)
+
+  // 事件处理, 内部调用 dispatch 函数 
+  function login(email, pwd) {
+    if(...) dispatch({type: 'login', payload: {...}})
+  }
+  function logout() dispatch({type: 'logout'})
+ 
+  return (
+  	<AuthContext.Provider value = {{
+          	user,
+            isValid,
+            login,
+            logout
+          }}
+    >
+    	{children}
+    </AuthContext.Provider>
+  )
+}
+function useAuth() {
+  const context = useContext(AuthContext)
+  if(context === undefined) throw new Error('Context was used outside of the provider')
+  return context
+}
+
+export {AuthProvider, useAuth}
+```
+
+- 如何防止用户未登录，直接通过url进入保密页面
+  - 对保密页面封装**导航重定向hook** 
+
+```js
+function ProtectedRoute({ children }) {
+  const { isValid } = useAuth()
+  const navigate = useNavigate()
+  
+  useEffect(() => {
+    if(!isValid) navigate('/')
+  }, [isValid, navigate])
+  
+  return isValid ? children : null
+}
+
+// 使用
+<Route path='app' element={<ProtectedRoute>
+                           		<AppLayout/>
+                           </ProtectedRoute>}/>
+```
+
+
+
+
+
+
+
+
+
+ 
+
+# react-router@6
+
+### 基本使用
+
+- **Link组件**：to属性设置跳转路径，最终会被渲染成a元素
+- **内置组件Routes和Route**
+- Route组件有两个属性：path设置匹配路径、element设置渲染组件
+
+```js
+import { HashRouter, BrowserRouter } from 'react-router-dom'
+const root = ReactDOM.createRoot(document.querySelector('#root'))
+root.render(
+    <HashRouter>
+    	<App/>
+    </HashRouter>
+)
+```
+
+```js
+{/* 路由链接 */}
+<Link to='/about'>关于</Link>
+<Link to='/profile'>我的</Link>
+
+{/* 注册路由 */}
+<Routes>
+  <Route path="/about" element={<About/>}/>
+  <Route path="/profile" element={<Profile/>}/>
+  <Route path='*' element={<Notfound/>}/>     // 全都匹配不到，呈现notfound界面
+</Routes>
+```
+
+- **NavLink组件：可以设置样式的Link组件，默认添加类—active**
+
+```js
+<NavLink className={({isActive}) =>  isActive ? 'coderwhy' : ''} to='/about'>关于</NavLink>
+<NavLink className={({isActive}) =>  isActive ? 'coderwhy' : ''} to='/profile'>我</NavLink>
+
+.coderwhy {
+    color: orange
+}
+
+// 默认类active的常见用法
+.nav a:global(.active) {
+  background-color: green
+}
+```
+
+
+
+
+
+### 路由嵌套
+
+- **Route组件嵌套**
+- **Outlet组件：子路由的占位元素**
+
+```js
+<Routes>
+  <Route path="/home" element={<Home/>}>
+      <Route path='recommend' element={<HomeRecommend/>} />
+      <Route path='rank' element={<HomeRank/>} />
+  </Route>
+  <Route path="/about" element={<About/>}/>
+</Routes>
+
+// 子组件
+<Link to='recommend'>推荐</Link>
+<Link to='rank'>排行榜</Link>
+	/* 占位的组件*/
+<Outlet/>
+```
+
+
+
+##### 默认路由
+
+- 在Route组件中添加index属性，默认子路由 
+
+```js
+<Routes>
+  <Route index element={<Home/>}/>
+  <Route path="home" element={<Home/>}/>
+  <Route path="about" element={<About/>}/>
+</Routes>
+```
+
+
+
+##### Navigate组件
+
+- **可用于路由的重定向**
+- replace属性：用于控制跳转模式（默认是false）
+  - true: 替换当前历史条目而不是添加新条目
+    - 用户点击回退按钮会跳过被替换的界面
+    - 适合于登录后跳转，用户不应该能通过后退按钮回到登录页
+
+
+```js
+<Routes>
+  <Route index element={<Navigate to='home'/>}/>
+  <Route path="home" element={<Home/>}/>
+  <Route path="about" element={<About/>}/>
+</Routes>
+```
+
+
+
+
+
+
+
+### useNavigate()
+
+- **返回一个导航函数**
+  - navigate(path)
+  - navigate(path, {replace: true})
+  - navigate(-1) 前退一步
+
 
 ```jsx
-<div id='app'></div>
-<script type="text/babel">
-    function formatPrice(price) {
-      return '￥' + Number(price).toFixed(2)
-    }
-
-    class App extends React.Component {
-      constructor() {
-        super()
-        this.state = {
-          books: [
-            {
-              id:1,
-              name: '算法导论',
-              data: '2006-9',
-              price: 85.00,
-              count: 1
-            },
-            {
-              id: 2,
-              name: 'unix编程艺术',
-              data: '2006-2',
-              price: 59.00,
-              count: 1
-            },
-            {
-              id: 3,
-              name: '编程珠玑',
-              data: '2008-10',
-              price: 39.00,
-              count: 1
-            },
-            {
-              id: 4,
-              name: '代码大全',
-              data: '2006-3',
-              price: 128.00,
-              count: 1
-            }
-          ]
-        }
-      }
-        
-      renderBooks() {
-        return (
-          <div>
-            <table>
-              <thead>
-                <tr>
-                  <th></th>
-                  <th>书籍名称</th>
-                  <th>出版日期</th>
-                  <th>价格</th>
-                  <th>购买数量</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {
-                  this.state.books.map((item, index) => {
-                    return (
-                      <tr>
-                        <td>{index+1}</td>
-                        <td>{item.name}</td>
-                        <td>{item.data}</td>
-                        <td>{formatPrice(item.price)}</td>
-                        <td>
-                          <button disabled={item.count <= 1} onClick={e => {this.changeCount(index, -1)}}>-</button>
-                          <span className='count'>{item.count}</span>
-                          <button onClick={e => {this.changeCount(index, 1)}}>+</button>
-                        </td>
-                        <td><button onClick={e => this.removeBook(index)}>移除</button></td>
-                      </tr>
-                    )
-                  })
-                }
-              </tbody>
-          </table>
-          <h2>总价格：{this.getTotalPrice()}</h2>
+import { useNavigate } from 'react-router-dom'
+export function App(props) {
+    const navigate = useNavigate()
+    return (
+    	<div>
+        	<button onClick={e => navigate('category')}>分类</button>
+          <button onClick={e => navigate('order')}>订单</button>
         </div>
-        )
-      }
-
-      renderEmptyTip() {
-        return (<h2>购物车为空~</h2>)
-      }
-
-      render() {
-        return this.state.books.length ? this.renderBooks() : this.renderEmpty()
-      }
-
-      getTotalPrice() {
-        const total = this.state.books.reduce((preVal, item) => {
-          return preVal + item.count * item.price
-        }, 0)
-        return formatPrice(total)
-      }
-
-      removeBook(index) {
-        let newBooks = this.state.books.filter((item, indey) => {
-          return  index != indey
-        })
-        {/*react设计原则：state中的数据的不可变性*/}
-        {/*修改state中的值必须通过setState*/}
-        this.setState({
-          books: newBooks
-        }) 
-      }
-
-      changeCount(index, count) {
-          const anoBooks = [...this.state.books]
-          anoBooks[index].count += count
-          this.setState({
-            books: anoBooks
-          })
-      }
-    }
-</script>
+    )
+}
 ```
+
+- 类组件如何处理：通过高阶组件进行增强
+
+```JSX
+function withRouter(cpn) {
+    return function(props) {
+        // 编程式路由导航
+        const navigate = useNavigate()
+        // 路由传参
+        const params = useParams()
+        const location = useLocation()
+        const [searchParams] = useSearchParams()
+        const query = Object.fromEntries(seachParams)
+        
+        const router = { navigate, params, location, query }
+        return <cpn {...props} router={router}/>
+    }
+}
+```
+
+
+
+
+
+### 路由传参
+
+#### 动态路由params
+
+- **Link组件跳转，Route组件匹配，useParams()获取参数值**
+- useParams()返回一个对象
+
+```jsx
+//AboutCulture.js
+export default function AboutCulture() {
+  const [message] = useState([
+    {id: 1, title: '消息1', content: '锄禾日当午'},
+    {id: 2, title: '消息2', content: '汗滴禾下土'},
+    {id: 3, title: '消息3', content: '谁知盘中餐'},
+    {id: 4, title: '消息4', content: '粒粒皆辛苦'}
+  ])
+  return (
+    <div>
+      {
+        message.map((m) => {
+          return <Link to={`/detail/${m.id}/${m.content}`}>{m.title}</Link>
+        })
+      }
+      <Outlet/>
+    </div>
+  )
+}
+
+//Detail.js
+import { useParams } from 'react-router-dom'
+export default memo(function Detail() {
+  const { id, content } = useParams()
+  return (
+    <div>
+      <h2>{id}-{content}</h2>
+    </div>
+  )
+})
+
+// App.jsx
+<Route path='/detail/:id/:content' element={<Detail/>}/>
+```
+
+
+
+
+
+#### query参数
+
+- **url的query参数通过useSearchParams()，可以在全局访问到**
+- useSearchParams()返回一个数组，通过set可以修改url的query参数
+- 【 query参数不影响路由匹配，取决于query参数前面路径】
+
+```jsx
+//AboutCulture.js
+export default function AboutCulture() {
+  const [message] = useState([
+    {id: 1, title: '消息1', content: '锄禾日当午'},
+    {id: 2, title: '消息2', content: '汗滴禾下土'},
+    {id: 3, title: '消息3', content: '谁知盘中餐'},
+    {id: 4, title: '消息4', content: '粒粒皆辛苦'}
+  ])
+  return (
+    <div>
+      {
+        message.map((m) => {
+          return <Link key={m.id} to={`deta il?id=${m.id}&content=${m.content}`}>{m.title}</Link>
+        })
+      }
+      <Outlet/>
+    </div>
+  )
+}
+
+//Detail.js
+import { useSearchParams } from 'react-router-dom'
+export default memo(function Detail() {
+  const [searchParams, setSeatchParams] = useSearchParams()
+  const id = searchParams.get('id')
+  const content = searchParams.get('content')
+  return (
+    <div>
+      <h2>{id}-{content}</h2>
+      <button onClick = {() => setSeatchParams({id: 'test', content: 'demo'})}>
+        改变query参数
+      </button>
+    </div>
+  )
+})
+```
+
+
+
+#### useLocation()
+
+```js
+//AboutCulture.js
+export default function AboutCulture() {
+  const [message] = useState([
+    {id: 1, title: '消息1', content: '锄禾日当午'},
+    {id: 2, title: '消息2', content: '汗滴禾下土'},
+    {id: 3, title: '消息3', content: '谁知盘中餐'},
+    {id: 4, title: '消息4', content: '粒粒皆辛苦'}
+  ])
+  return (
+    <div>
+      {
+        message.map((m) => {
+          return <Link key={m.id} to='detail' state={{id: m.id, content: m.content}}>{m.title}</Link>
+        })
+      }
+      <Outlet/>
+    </div>
+  )
+}
+
+//Detail.js
+import { useLocation } from 'react-router-dom'
+
+export default memo(function Detail() {
+  const {state: {id, content}} = useLocation()
+  return (
+    <div>
+      <h2>id: {id}</h2>
+      <h2>content: {content}</h2>
+    </div>
+  )
+})
+```
+
+
+
+
+
+### useRoutes()
+
+- **一个普通函数，传入routes，会自动生成路由【实现将路由映射关系单独配置】**
+
+```jsx
+// router/index.js
+export default [
+  {
+    path: '/',
+    element: <Navigate to='/about'/>
+  },
+  {
+    path: '/about',
+    element: <About/>
+  },
+  {
+    path: '/profile',
+    element: <Profile/>
+  },
+]
+
+//App.jsx
+import { useRoutes } from 'react-router-dom'
+import routes from './routes'
+
+export default function App(){
+  return (
+    <div>
+      {/* 注册路由 */}
+      {useRoutes(routes)}
+    </div>
+  )
+}
+```
+
+
+
+
+
+### 懒加载
+
+- **React.lazy方法传入一个函数，该函数要求返回一个promise**
+- **Suspense组件，通过fallback属性定义组件下载前显示内容**
+
+```jsx
+// router/index.js
+const About = React.lazy(() => import('./pages/About'))
+const Home = React.lazt(() => import('./pages/Home'))
+
+// index.js
+const root = ReactDOM.createRoot(document.querySelector('#root'))
+root.render(
+	<HashRouter>
+    	<Suspense fallback={<h2>Loading...</h2>}>
+        	<App/>
+        </Suspense>
+    </HashRouter>
+)
+```
+
+
+
+
+
+
+
+
+
+# 性能优化
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250414095420992.png" alt="image-20250414095420992" style="zoom:40%;" />
+
+
+
+### 组件渲染
+
+- 三种情况下组件会重新渲染
+
+  1) 组件内状态发生改变
+
+  2) 当context发生改变时，消费数据的子组件会re-render
+
+  3) 当父组件re-render时，它的所有子组件都会re-render
+
+- 不必要的渲染：一个dom结构没有发生改变的渲染 
+
+示例：
+
+```js
+// SlowComponent 是一个性能 
+function SlowComponent () {
+  const words = Array.from({length: 100_000}, () => 'word')
+  return (
+  	<ul>
+    	{words.map((word, i) => (<li key={i}>{i}: {word}</li>))}
+    </ul>
+  )
+}
+// 每次点击按钮，父组件render，子组件也都会render，性能很差
+function Test() {
+  const [count, setCount] = useState(0)
+  return (
+  	<div>
+    	<button onClick={() => setCount(c => c+1)}>{count}</button>
+  		<SlowComponent/>
+    </div>
+  )
+}
+// 如何优化,把不想re-render的子组件通过children prop方式使用，这样子组件不会re-render
+function Counter({children}) {
+  const [count, setCount] = useState(0)
+  return (
+  	<div>
+    	<button onClick={() => setCount(c => c+1)}>{count}</button>
+			{children}
+    </div>
+  )
+}
+function Test() {
+  return (
+    	<Counter>
+      	<SlowComponent/>
+      </Counter)	
+  )
+}
+```
+
+
+
+
+
+### memoization
+
+![image-20250414105115347](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250414105115347.png)
+
+- 缓存代理的一种体现
+- **纯函数，相同的输入会有相同的输出，将输出结果cache**
+  - 组件，使用memo函数记忆
+  - 对象，使用useMemo记忆
+  - 函数，使用useCallback记忆
+
+
+
+#### memo
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250414105818745.png" alt="image-20250414105818745" style="zoom:40%;" />
+
+- 父组件渲染，子组件也会重新渲染，如果传给子组件的prop未改变，渲染是毫无意义的
+- **可以利用memo包裹子组件，在传给子组件prop不变的情况下，子组件不重新渲染** 
+- 使用场景：props稳定的复杂组件
+
+
+
+
+
+#### useMemo()
+
+在React中，每次渲染时一切都被重新创建，包括对象和函数
+
+这导致将对象/函数作为props传给子组件时，子组件使用的对象/函数对应的内存地址发生改变 ，会造成子组件re-render
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250414131136815.png" alt="image-20250414131136815" style="zoom:40%;" />
+
+- 第一个参数是回调函数，返回要缓存的对象；第二个参数是依赖项数组，依赖项发生变化时回调函数执行返回新的对象
+
+```js
+const stableObj = useMemo(() => {
+  return cacheObj
+}, [])
+```
+
+ 
+
+
+
+#### useCallback()
+
+- 第一个参数是缓存的函数；第二个参数是依赖项数组，依赖项发生变化时返回新的函数
+
+```js
+const handleAddPost = useCallback(cacheFn, [])
+```
+
+- useState()返回的setState函数，react底层是自动记忆的 
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1572,7 +2291,7 @@ class App extends React.Component {
   
   - **当消费组件是类组件时：`类.contextType`可以被赋值为context对象，类组件就可以通过`this.context`来消费value**
 
-```jsx
+```js
 // APP组件直接向孙组件ProfileHeader传值
 <script type="text/babel">
     // 1、创建Context对象
@@ -1646,6 +2365,8 @@ class App extends React.Component {
       )
     }
 ```
+
+
 
 
 
@@ -2256,7 +2977,7 @@ class App extends React.PureComponent {
 
 - **优点：编写方式和普通的网页开发中的编写方式一致**
 
-- **缺点：普通的css属于全局的css，样式之间会相互影响，会相互层叠掉**
+- ** 缺点：普通的css属于全局的css，样式之间会相互影响，会相互层叠掉**
 
 
 
@@ -2264,25 +2985,41 @@ class App extends React.PureComponent {
 
 ### css modules
 
-- **css modules在类似webpack配置的环境下都可以使用，React脚手架已经内置css modules的配置**
+- css modules在类似webpack配置的环境下都可以使用，React脚手架已经内置css modules的配置
 
 - **需要将css文件后缀`.css`改为`.module.css`**
 
 - **优点：解决了样式层叠的问题，css有局部作用域**
 
-- **缺点：**
+- 【**不要使用元素选择器，会影响全局**】
 
-  - **编写css时类名不能使用连接符（.home-title）**
-  - **不方便动态修改样式**
+- 缺点：
+
+  - 编写css时类名不能使用连接符（.home-title）
+  - 不方便动态修改样式
   
-  ```jsx
+  ```js
+  .title {
+  }
+  
+  .content {
+  }
+  
+  // 全局样式
+  :global(.test) {
+  }
+  ```
+  
+  ```js
   import appStyle from './App.module.css'
+  
   class App extends PureComponent {
       render() {
           return (
               <div>
               	<h2 className = {appStyle.title}>标题</h2>
-              	<p> className = {appStyle.content}内容</p>
+              	<p> className = {appStyle.content}>内容</p>
+              	<p> className = 'test'>测试一下全局样式</p>
               </div>
           )
       }
@@ -2881,351 +3618,6 @@ export default connect(null, mapDispatchToProps)(About)
 
 
 
-
-
-
-# react-router@6
-
-### 基本使用
-
-- **内置组件Routes和Route**
-- **Route组件有两个属性：path设置匹配路径、element设置渲染组件**
-- **Link组件：to属性设置跳转路径，最终会被渲染成a元素**
-
-```js
-import { HashRouter, BrowserRouter } from 'react-router-dom'
-const root = ReactDOM.createRoot(document.querySelector('#root'))
-root.render(
-    <HashRouter>
-    	<App/>
-    </HashRouter>
-)
-```
-
-```jsx
-    {/* 路由链接 */}
-    <Link to='/about'>关于</Link>
-    <Link to='/profile'>我的</Link>
-
-	{/* 注册路由 */}
-	<Routes>
-        <Route path="/about" element={<About/>}/>
-        <Route path="/profile" element={<Profile/>}/>
-            
-        // 全都匹配不到，呈现notfound界面
-        <Route path='*' element={<Notfound/>}/>
-	</Routes>
-```
-
-- **NavLink组件：有样式的Link组件**
-
-```js
-<NavLink className={({isActive}) =>  isActive ? 'coderwhy' : ''} to='/about'>关于</NavLink>
-<NavLink className={({isActive}) =>  isActive ? 'coderwhy' : ''} to='/profile'>我</NavLink>
-
-.coderwhy {
-    color: orange
-}
-```
-
-
-
-
-
-### useRoutes()
-
-- **一个普通函数，传入routes，会自动生成路由【实现将路由映射关系单独配置】**
-
-```jsx
-// router/index.js
-export default [
-  {
-    path: '/',
-    element: <Navigate to='/about'/>
-  },
-  {
-    path: '/about',
-    element: <About/>
-  },
-  {
-    path: '/profile',
-    element: <Profile/>
-  },
-]
-
-//App.jsx
-import { useRoutes } from 'react-router-dom'
-import routes from './routes'
-
-export default function App(){
-  return (
-    <div>
-      {/* 注册路由 */}
-      {useRoutes(routes)}
-    </div>
-  )
-}
-```
-
-
-
-
-
-### Navigate组件
-
-- **可用于路由的重定向**
-- replace属性：用于控制跳转模式（默认是false）
-
-```js
-{/* Navigate组件可用于重定向 */}
-<Route path='/' element={<Navigate to='/about'/>}/>
-```
-
-```jsx
-import { Navigate } from 'react-router-dom'
-export class Login extends PureComponent {
-    constructor() {
-        super()
-        this.state = {
-            isLogin: false
-        }
-    }
-    login() {
-        this.setState({ isLogin: true })
-    }
-    render() {
-        const { isLogin } = this.state
-        return (
-            <div>
-                <h2>Login page</h2>
-                {!isLogin ? <button onClick={e => this.login()}>登录</button> : <Navigate to='/home'/>}
-            </div>
-        )
-    }
-}
-```
-
-
-
-
-
-### 路由嵌套
-
-- **Outlet组件：子路由的占位元素**
-
-```jsx
-<Routes>
-    <Route path="/home" element={<Home/>}>
-        <Route path='/home/recommend' element={<HomeRecommend/>}/>
-        <Route path='/home/rank' element={<HomeRank/>}/>
-    </Route>
-    <Route path="/about" element={<About/>}/>
-</Routes>
-
-// 子组件
-<Link to='/home/recommend'>推荐</Link>
-<Link to='/home/rank'>排行榜</Link>
-
-	/* 占位的组件*/
-<Outlet/>
-```
-
-
-
-
-
-### 编程式路由-useNavigate()
-
-- **只能在函数式组件中顶层使用**
-
-```jsx
-import { useNavigate } from 'react-router-dom'
-export function App(props) {
-    const navigate = useNavigate()
-    function navigateTo(path) {
-        navigate(path)
-    }
-    return (
-    	<div>
-        	<button onClick={e => navigateTo('/category')}>分类</button>
-            <button onClick={e => navigateTo('/order')}>订单</button>
-        </div>
-    )
-}
-```
-
-- **类组件如何处理：通过高阶组件进行增强**
-
-```JSX
-function withRouter(cpn) {
-    return function(props) {
-        // 编程式路由导航
-        const navigate = useNavigate()
-        
-        // 路由传参
-        const params = useParams()
-        const location = useLocation()
-        const [searchParams] = useSearchParams()
-        const query = Object.fromEntries(seachParams)
-        
-        const router = { navigate, params, location, query }
-        return <cpn {...props} router={router}/>
-    }
-}
-```
-
-
-
-
-
-### 路由传参
-
-#### useParams()-动态路由
-
-- `/detail/${m.id}/${m.content}`
-
-```jsx
-//AboutCulture.js
-export default function AboutCulture() {
-  const [message] = useState([
-    {id: 1, title: '消息1', content: '锄禾日当午'},
-    {id: 2, title: '消息2', content: '汗滴禾下土'},
-    {id: 3, title: '消息3', content: '谁知盘中餐'},
-    {id: 4, title: '消息4', content: '粒粒皆辛苦'}
-  ])
-  return (
-    <div>
-      {
-        message.map((m) => {
-          return <Link to={`/detail/${m.id}/${m.content}`}>{m.title}</Link>
-        })
-      }
-      <Outlet/>
-    </div>
-  )
-}
-
-//Detail.js
-import { useParams } from 'react-router-dom'
-
-export default memo(function Detail() {
-  const { id, content } = useParams()
-  return (
-    <div>
-      <h2>id: {id}</h2>
-      <h2>content: {content}</h2>
-    </div>
-  )
-})
-
-// App.jsx
-<Route path='/detail/:id/:content' element={<Detail/>}/>
-```
-
-
-
-#### useSearchParams()-query参数
-
-- `detail?id=${m.id}&content=${m.content}`
-
-```jsx
-//AboutCulture.js
-export default function AboutCulture() {
-  const [message] = useState([
-    {id: 1, title: '消息1', content: '锄禾日当午'},
-    {id: 2, title: '消息2', content: '汗滴禾下土'},
-    {id: 3, title: '消息3', content: '谁知盘中餐'},
-    {id: 4, title: '消息4', content: '粒粒皆辛苦'}
-  ])
-  return (
-    <div>
-      {
-        message.map((m) => {
-          return <Link key={m.id} to={`detail?id=${m.id}&content=${m.content}`}>{m.title}</Link>
-        })
-      }
-      <Outlet/>
-    </div>
-  )
-}
-
-//Detail.js
-import { useSearchParams } from 'react-router-dom'
-
-export default memo(function Detail() {
-  const [searchParams, setSeatchParams] = useSearchParams()
-  const id = searchParams.get('id')
-  const content = searchParams.get('content')
-  return (
-    <div>
-      <h2>id: {id}</h2>
-      <h2>content: {content}</h2>
-    </div>
-  )
-})
-```
-
-
-
-#### useLocation()
-
-```js
-//AboutCulture.js
-export default function AboutCulture() {
-  const [message] = useState([
-    {id: 1, title: '消息1', content: '锄禾日当午'},
-    {id: 2, title: '消息2', content: '汗滴禾下土'},
-    {id: 3, title: '消息3', content: '谁知盘中餐'},
-    {id: 4, title: '消息4', content: '粒粒皆辛苦'}
-  ])
-  return (
-    <div>
-      {
-        message.map((m) => {
-          return <Link key={m.id} to='detail' state={{id: m.id, content: m.content}}>{m.title}</Link>
-        })
-      }
-      <Outlet/>
-    </div>
-  )
-}
-
-//Detail.js
-import { useLocation } from 'react-router-dom'
-
-export default memo(function Detail() {
-  const {state: {id, content}} = useLocation()
-  return (
-    <div>
-      <h2>id: {id}</h2>
-      <h2>content: {content}</h2>
-    </div>
-  )
-})
-```
-
-
-
-### 懒加载
-
-- **React.lazy方法传入一个函数，该函数要求返回一个promise**
-- **Suspense组件，通过fallback属性定义组件下载前显示内容**
-
-```jsx
-// router/index.js
-const About = React.lazy(() => import('./pages/About'))
-const Home = React.lazt(() => import('./pages/Home'))
-
-// index.js
-const root = ReactDOM.createRoot(document.querySelector('#root'))
-root.render(
-	<HashRouter>
-    	<Suspense fallback={<h2>Loading...</h2>}>
-        	<App/>
-        </Suspense>
-    </HashRouter>
-)
-```
 
 
 

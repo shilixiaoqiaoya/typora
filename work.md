@@ -548,6 +548,51 @@ bar()
 
 
 
+##### reduce强大用法
+
+```js
+let arr = [
+  {
+    name: "why",
+    age: 18,
+  },
+  {
+    name: "kobe",
+    age: 24,
+  },
+  {
+    name: "kobe",
+    age: 64,
+  },
+  {
+    name: "james",
+    age: 23,
+  },
+  {
+    name: "james",
+    age: 244,
+  },
+];
+
+console.log(
+  arr.reduce((acc, cur) => {
+    // 存在
+    if (acc.findIndex((item) => item.name === cur.name) !== -1) {
+      return acc;
+    } else {
+      acc.push(cur);
+      return acc;
+    }
+  }, [])
+)
+// 输出 
+{ name: "why", age: 18}
+{ name: "kobe", age: 24}
+{ name: "james", age: 23}
+```
+
+
+
 
 
 
