@@ -1383,9 +1383,63 @@ as unknown as AxiosRequestHeaders 双重类型断言，绕过ts的类型检查�
 
  
 
-##### lastElementChild
+### lastElementChild
 
 - 返回文档的最后一个子元素，若不存在则返回null
+
+
+
+
+
+
+
+# 组件封装
+
+## 函数调用
+
+- 动态创建容器 -》 渲染组件 -》 销毁组件时清理dom
+
+```js
+// 目标组件
+function Alert({message, onClose}) {
+  return (
+  	<div>
+    	<p>{message}</p>
+    	<button onClick={onClose}>close</button>
+    </div>
+  )
+}
+
+// 函数式调用逻辑
+const alert = () => {
+  show: (message) => {
+    // 创建容器
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    // 渲染组件
+    const root = ReactDOM.createRoot(container)
+    root.render(
+      <Alert message={message} 
+  					 onClose={() => {
+               root.unmount()
+               document.body.removeChild(container)
+             }}
+			/>
+    )
+  }
+}
+
+// 调用示例
+alert.show('hello world')
+```
+
+
+
+
+
+
+
+
 
 
 
@@ -1855,15 +1909,7 @@ indent-15px  文本缩进15px  [text-indent缩写]
 
 # 图片上传
 
-file 
-
-blob
-
-base64的dataurl 
-
-
-
-
+file 、blob、base64的dataurl 
 
 ### 基本流程
 

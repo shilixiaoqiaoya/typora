@@ -168,7 +168,20 @@ function Test() {
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250412100206070.png" alt="image-20250412100206070" style="zoom:40%;" />
 
+- **类组件**：
+  - **组件名称要大写字母开头**
+  - **类组件需要继承自`React.Component`**
+  - **【类组件必须实现render函数】**
+- **函数式组件**：
+  - **没有生命周期函数**
+  - **没有this关键字**
+  - **没有内部的状态state**
 
+**【React要求无论是函数式组件还是类组件，这个组件必须像纯函数一样，保护它们的props不被修改】**
+
+- 根据组件内部是否有状态需要维护，分为**无状态组件和有状态组件**
+
+- 根据组件的不同职责，分为**展示型组件和容器型组件**
 
 
 
@@ -919,9 +932,10 @@ useEffect(function() {
 
 ### 基本使用
 
-- **只能在函数式组件或自定义hook的顶层使用，不可以在条件语句、循环语句使用**
-- **不可以在return语句之后使用hook**
-- *「需要保证一个组件中所有hook在每次渲染时都按照相同的顺序去调用」*，如果在条件语句中使用hook，在每次重新渲染时hook调用顺序可能被打乱
+- **Hook是React16.8推出的新特性，它可以让我们在不编写class的情况下使用state和生命周期函数**
+- **【只能在函数式组件或自定义hook的顶层使用】，不可以在条件语句、循环语句、子函数中使用；不可以在return语句之后使用**
+- 100%向下兼容，可以渐进式使用hook，不需要直接将所有的代码重构为hook
+- *需要保证一个组件中所有hook在每次渲染时都按照相同的顺序去调用」，如果在条件语句中使用hook，在每次重新渲染时hook调用顺序可能被打乱*
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250410113545554.png" alt="image-20250410113545554" style="zoom:40%;" />
 
@@ -933,7 +947,7 @@ useEffect(function() {
 
 ### useState
 
-- **参数：初始化值，如果不设置为undefined**
+- **参数：初始化值，如果不设置为undefined；还可以传入函数来进行初始化**
 - **返回值：数组，包含两个元素**
   - **元素一：当前状态的值**
   - **元素二：设置状态值的函数**
@@ -1009,16 +1023,11 @@ export default function Student() {
 
 - 需要考虑好state放置的位置，放在自身组件，还是进行**状态提升**放在父组件上
   - 一个组件的显示隐藏，交由父组件控制
+  
 - setState的参数可以是state，**可以是函数**（需注意**数据的不可变性**）
   - 数组push操作改为  [...state, item]
   - 如果state是一个数组，它存储多个对象，想修改某个对象的某个属性，利用数组的map方法
   - 数组操作，先把数组copy一份:   ().slice().sort()
-
-- useState传入函数来进行初始化
-
-  ```js
-  
-  ```
 
   
 
@@ -1030,56 +1039,16 @@ export default function Student() {
 
 ### useEffect
 
-- 组件挂载时发送发送网络请求
+- **第一个参数：函数**
+  - 类似于dom操作等副作用（Side Effects）可以写在useEffect中
+  - 该函数有一个返回值，也是一个函数，在此可以做一些清除工作，比如取消订阅，这样可以将添加和移除订阅的逻辑放在一起，代码内聚性更强
 
-```js
-useEffect(() => {
-  fetch('xxx').then(res => res.json()).then(data => console.log(data))
-}, [])
 
-// 使用async/await
-useEffect(() => {
-  async function fetchMovies() {
-    const res = await fetch('xxx')
-    const data = await res.json()
-		console.log(data)
-  }
-  fetchMovies()
-}, [])
-```
+- **第二个参数：一个数组**
+  - 不传第二个参数时，组件每次渲染时函数都会执行
+  - 传入一个空数组时，组件挂载时函数执行，相当于componentDidMount
+  - 依赖项数组有值时，① 组件挂载时函数执行，② 依赖项改变，函数会重新执行
 
-- **可以模拟类组件的生命周期函数，但是它功能更强大**
-- **类似于网络请求、一些事件的监听，都是React更新DOM的副作用（Side Effects）**
-- **在函数式组件中，可以有多个useEffect，允许开发者按照代码的用途分离它们，React将按照effect声明的顺序依次调用每一个effect**
-
-```jsx
-// 将网页title设置为count值
-import { useEffect, useState } from 'react'
-export default function() {
-  const [count, setCount] = useState(0)
-  
-  useEffect(() => {
-    document.title = count
-  })  
-    
-  return (
-    <div>
-      <h2>{count}</h2>
-      <button onClick={e => setCount(count + 1)}>+1</button>
-    </div>
-  )
-}
-```
-
-- **第一个参数为函数，每次重新渲染完会执行，相当于componentDidMount和componentDidUpdate**
-
-- **该函数有一个返回值，是一个函数，会在组件更新和卸载时执行，在此可以做一些清除工作，比如取消订阅**
-
-  **这是effect可选的清除机制，每个effect都会返回一个清除函数，这样可以将添加和移除订阅的逻辑放在一起，代码内聚性更强**
-
-- **第二个参数：一个数组，只有数组中的state发生变化时，effect才会执行**
-
-- **如果effect不希望依赖任何state时，可以传入一个空数组，此时两个回调函数对应componentDidMount和componentWillUnmount**
 
 ```jsx
 useEffect(() => {
@@ -1087,8 +1056,42 @@ useEffect(() => {
     return () => {  
       // 在此可以做一些清除工作
     }
-}, [count])  // 如果是[], 回调函数相当于componentDidMount
+}, [])  
 ```
+
+
+
+
+
+- 不要在useEffect中处理用户事件
+
+- 不要在组件挂载时发送网络请求，使用react-query 代替
+
+```js
+useEffect(() => {
+  fetch('xxx').then(res => res.json()).then(data => console.log(data))
+}, [])
+```
+
+
+
+
+
+
+
+
+
+##### 依赖项数组
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250414180409096.png" alt="image-20250414180409096" style="zoom:43%;" />
+
+1) **将Reactive value放入依赖项数组：state 、prop、context value、derived state、函数**
+2) **不要将对象或数组放入依赖项数组中，防止组件每次渲染effect都会执行**
+3) 【以上规则适用于有依赖项数组的其它hook】
+
+
+
+
 
 
 
@@ -1206,8 +1209,8 @@ export function useKey(key, action) {
 ### useReducer()
 
 - **【管理状态的另一种方式，适用于状态之间相互依赖 、有关联的场景】**
-- **将所有状态更新逻辑集中在一个位置 ，与组件逻辑解耦**
-- reducer要求是纯函数，不可以写网络请求的逻辑
+- 将所有状态更新逻辑集中在一个位置 ，与组件逻辑解耦
+- **reducer要求是纯函数，不可以写网络请求的逻辑或其它副作用逻辑**
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250412130911729.png" alt="image-20250412130911729" style="zoom:40%;" />
 
@@ -1764,10 +1767,10 @@ export default function App(){
 
 
 
-### 懒加载
+### 路由懒加载
 
 - **React.lazy方法传入一个函数，该函数要求返回一个promise**
-- **Suspense组件，通过fallback属性定义组件下载前显示内容**
+- **Suspense组件，通过fallback属性定义组件下载前显示的 内容**
 
 ```jsx
 // router/index.js
@@ -1882,9 +1885,9 @@ function Test() {
 
 #### useMemo()
 
-在React中，每次渲染时一切都被重新创建，包括对象和函数
+**在React中，每次渲染时一切都被重新创建，包括对象和函数**
 
-这导致将对象/函数作为props传给子组件时，子组件使用的对象/函数对应的内存地址发生改变 ，会造成子组件re-render
+**这导致将对象/函数作为props传给子组件时，子组件使用的对象/函数对应的内存地址发生改变 ，会造成子组件re-render**
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250414131136815.png" alt="image-20250414131136815" style="zoom:40%;" />
 
@@ -1896,7 +1899,9 @@ const stableObj = useMemo(() => {
 }, [])
 ```
 
- 
+- context的provider的value属性，是一个对象，当provider还有父组件时，可以利用useMemo来包裹value属性 
+
+
 
 
 
@@ -1909,40 +1914,31 @@ const handleAddPost = useCallback(cacheFn, [])
 ```
 
 - useState()返回的setState函数，react底层是自动记忆的 
+- 使用场景
+  - 函数作为prop传给子组件时
+  - 当函数作为hook的依赖项数组的一项时，需要使用useCallback对函数进行包裹
 
 
 
 
 
 
+### 分包
+
+#### lazy()
+
+路由懒加载
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250414174251003.png" alt="image-20250414174251003" style="zoom:40%;" />
+
+```js
+import { lazy } from 'react'
+const HomePage = lazy(() => import('./pages/Homepage'))
+```
 
 
 
 
-
-
-
-
-
-# 组件化开发
-
-### 组件分类
-
-- 根据组件的定义方式，分为**函数组件和类组件**
-  - **类组件**：
-    - **组件名称要大写字母开头**
-    - **类组件需要继承自`React.Component`**
-    - **【类组件必须实现render函数】**
-  - **函数式组件**：
-    - **没有生命周期函数**
-    - **没有this关键字**
-    - **没有内部的状态state**
-  
-  **【React要求无论是函数式组件还是类组件，这个组件必须像纯函数一样，保护它们的props不被修改】**
-  
-- 根据组件内部是否有状态需要维护，分为**无状态组件和有状态组件**
-
-- 根据组件的不同职责，分为**展示型组件和容器型组件**
 
 
 
@@ -1978,6 +1974,8 @@ const handleAddPost = useCallback(cacheFn, [])
 - **清除timer**
 - **取消网络请求**
 - **清除在componentDidMount()中创建的订阅**
+
+
 
 
 
@@ -3120,27 +3118,31 @@ const HYButtonWrapper = styled(HYButton)`
 
 # redux
 
-- **react在视图层帮助我们解决了DOM的渲染过程，但是state依然是留给我们自己来管理**
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250415100414469.png" alt="image-20250415100414469" style="zoom:35%;" />
 
-- **可以是组件定义自己的state，可以是组件之间通过props来通信，或是通过context进行数据间的共享**
+- react在视图层帮助我们解决了DOM的渲染过程，但是state依然是留给我们自己来管理
 
-- **当项目变得很庞大时，状态变得多且复杂，这时就可以使用redux**
+- 可以是组件定义自己的state，可以是组件之间通过props来通信，或是通过context进行数据间的共享
 
-  **redux是一个帮助我们管理state的容器，是JavaScript的状态容器，提供了可预测的状态管理**
+- 当项目变得很庞大时，状态变得多且复杂，这时就可以使用redux
 
-- **①单一数据源：通常只创建一个store，让整个应用程序的state变得方便维护、追踪、修改**
+  redux是一个帮助我们管理state的容器，是JavaScript的状态容器，提供了可预测的状态管理
+
+- ** ①单一数据源：通常只创建一个store，让整个应用程序的state变得方便维护、追踪、修改**
 
 - **②state是只读的：唯一修改state的方式就是派发action**
 
 - **③使用纯函数来进行修改：通过reducer将旧state和action联系在一起，返回一个新的state**
 
-
+ 
 
 ### 核心概念
 
-#### ①store
+#### ① store
 
-#### ②action
+- createStore()
+
+#### ② action
 
 - **action是一个js对象，用于描述更新的type和content**
 - **所有数据的变化，必须通过派发（dispatch）action来更新**
@@ -3150,10 +3152,10 @@ const action = {type: 'ADD_FRIEND', info: {name: 'why', age: 18}}
 const action = {type: 'CHANGE_NAME', payload: {index: 0, newName: 'kobe'}}
 ```
 
-#### ③reducer
+#### ③ reducer
 
 - **reducer是一个纯函数， 不能产生副作用**
-- **reducer的作用是将传入的state和action结合起来生成一个新的state**
+- **reducer的作用是根据当前的state和action结合起来生成一个新的state**
 
 
 
@@ -3164,7 +3166,7 @@ const action = {type: 'CHANGE_NAME', payload: {index: 0, newName: 'kobe'}}
 ```js
 const { createStore } = require('redux')
 
-//初始状态
+// 初始状态
 const defaultState = {
   counter: 0
 } 
@@ -3181,31 +3183,27 @@ function reducer(state = defaultState, action) {
   }
 }
 
-//1、创建store，将reducer函数传入
+//1、创建store，将reducer 函数传入
 const store = createStore(reducer)
 
-//2、创建action
-const action1 = {type: 'INCREMENT'}
-const action2 = {type: 'DECREMENT'}
+//2、派发action
+store.dispatch({type: 'INCREMENT'})
+store.dispatch({type: 'DECREMENT'})
 
-//5、订阅state的修改
+//4、订阅state的修改
 store.subscribe(() => {
   console.log("订阅数据的变化"  + store.getState())
 })
-
-//4、派发action
-store.dispatch(action1)
-store.dispatch(action2)
 ```
 
-<img src="D:\DeskTop\笔记\typora-images\react-redux.jpg" style="zoom:70%;" />
+
 
 
 
 ### 文件划分
 
-- **将定义的所有actionCreators函数，放到一个独立的actionCreators.js中**
-- **actionCreators和reducer函数中的type常量是一致的，将常量抽取到独立文件夹constants.js中**
+- **定义的所有actionCreators函数**
+- **actionCreators和reducer函数中的type常量是一致的**
 - **将reducer函数放到独立的reducer.js中**
 - **将创建store的过程放在index.js中**
 
@@ -3213,22 +3211,43 @@ store.dispatch(action2)
 
 ```js
 import { createStore } from 'redux'
+import { combineReducers } from 'react'
 import reducer from './reducer'
 
 const store = createStore(reducer)
 
 export default store
+
+// 当有多个reducer时
+const rootReducer = combineReducers({
+    counterInfo: counterReducer,
+    homeInfo: homeReducer
+})
+const store = createStore(rootReducer)
 ```
 
 
 
-##### actionCreators.js
+##### reducer.js
 
 ```js
-import {
-  ADD_NUMBER,
-  SUB_NUMBER
-} from './constants'
+export const ADD_NUMBER = 'ADD_NUMBER'
+export const SUB_NUMBER = 'SUB_NUMBER'
+
+const defaultState = {
+  counter: 100
+}
+
+export default function reducer(state = defaultState, action) {
+  switch(action.type) {
+    case ADD_NUMBER:
+      return {...state, counter: state.counter + action.num}
+    case SUB_NUMBER:
+      return {...state, counter: state.counter - action.num}
+    default: 
+      return state
+  }
+}
 
 export const add_action = (num) => ({
   type: ADD_NUMBER,
@@ -3243,91 +3262,13 @@ export const sub_action = (num) => ({
 
 
 
-##### reducer.js
-
-```js
-import {
-  ADD_NUMBER,
-  SUB_NUMBER
-} from './constants'
-
-const defaultState = {
-  counter: 100
-}
-
-function reducer(state = defaultState, action) {
-  switch(action.type) {
-    case ADD_NUMBER:
-      return {...state, counter: state.counter + action.num}
-    case SUB_NUMBER:
-      return {...state, counter: state.counter - action.num}
-    default: 
-      return state
-  }
-}
-
-export default reducer
-```
-
-
-
-##### constants.js
-
-```js
-export const ADD_NUMBER = 'ADD_NUMBER'
-export const SUB_NUMBER = 'SUB_NUMBER'
-```
 
 
 
 
+### react-redux
 
-### 与react结合
-
-```jsx
-export default class Home extends PureComponent {
-  constructor(props) {
-    super(props)
-    this.state = {
-      counter: store.getState().counter
-    }
-  }
-  componentDidMount() {
-      //订阅state的修改
-   store.subscribe(() => {
-      this.setState({
-        counter: store.getState().counter
-      })
-    })
-  }
-
-  render() {
-    return (
-      <div>
-        <h2>Home</h2>
-        <h2>当前计数：{this.state.counter}</h2>
-        <button onClick={e => this.decrement(1)}>-1</button>
-        <button onClick={e => this.decrement(5)}>-5</button>
-      </div>
-    )
-  }
-  decrement(num) {
-    //派发action
-    store.dispatch(sub_action(num))
-  }
-}
-```
-
-
-
-
-
-### react-redux库
-
-- **Provider组件提供store**
-- **connect(mapStateToProps,  mapDispatchToProps)(Cpn)**
-- **`mapStateToProps`函数是将store的state映射到组件的props中**
-- **`mapDispatchToProps`函数是将store的派发事件映射到组件的props中**
+- **Provider组件**
 
 ```jsx
 //index.js
@@ -3339,7 +3280,43 @@ root.render(
     	<App/>
     </Provider>
 )
+```
 
+- **useSelector()：返回store中某一reducer的数据**
+  - 参数一：函数
+  - 参数二：可以进行比较来决定组件是否重新渲染（引入shallowEqual函数）
+- **useDispatch()：返回dispatch函数**
+
+```jsx
+const App = memo((props) => {
+    const { count } = useSelector((store) => store.counteInfo , shallowEqual)
+    const dispatch = useDispatch()
+    function addNumberHandle(num, isAdd = true) {
+        if(isAdd) {
+            dispatch(addNumberAction(num))
+        } else {
+            dispatch(subNumberAction(num))
+        }
+    }
+    return (
+    	<div>
+            <h2>当前计数：{count}</h2>
+            <button onClick={e => addNumberHandle(5)}>+5</button>
+            <button onClick={e => addNumberHandle(8, false)}>-8</button>
+        </div>
+    )
+})
+export default App
+```
+
+
+
+- 之前用法
+  - **connect(mapStateToProps,  mapDispatchToProps)(Cpn)**
+  - `mapStateToProps`函数是将store的state映射到组件的props中
+  - `mapDispatchToProps`函数是将store的派发事件映射到组件的props中
+
+```js
 //page.js
 import { connect } from 'react-redux'
 class Page extends PureComponent {
@@ -3353,9 +3330,11 @@ class Page extends PureComponent {
     render() {
         const { counter } = this.props
         return (
+          <>
             <div>{counter}</div>
             <button onClick={e => this.calcNum(1, true)}>+1</button>
-			<button onClick={e => this.calcNum(1, false)}>-1</button>
+						<button onClick={e => this.calcNum(1, false)}>-1</button>
+					</>
         )
     }
 }
@@ -3371,93 +3350,55 @@ export default connect(mapStateToProps, mapDispatchToProps)(Page)
 
 
 
-### 异步请求数据
-
-```js
-export class About extends PureComponent {
-    componentDidMount() {
-        axios.get('xxx').then(res => {
-            const banners = res.data.data.banner.list
-            const recommends = res.data.data.recommend.list
-            this.props.changeBanners(banners)
-            this.props.changeRecommends(recommends)
-        })
-    }
-    render() {
-        return <h2>About Page</h2>
-    }
-}
-const mapDispatchToProps = dispatch => ({
-    changeBanners(banners) {
-        dispatch(changeBannersAction(banners))
-    },
-    changeRecommends(recommends) {
-        dispatch(changeRecommendsAction(recommends))
-    }
-})
-export default connect(null, mapDispatchToProps)(About)
-```
 
 
 
-### redux-thunk库
 
-<img src="D:\DeskTop\笔记\typora-images\redux-thunk.jpg" style="zoom:70%;" />
+### redux-thunk
 
-- **要将网络请求代码和组件做解耦，放在redux代码里----actionCreators文件中**
-- **redux-thunk可以让dispatch(action函数调用)，action函数调用返回一个函数，该函数会被立即执行，并有两个参数**
-  - **dispatch：用于之后再次派发action**
-  - **getState：可以获取store中的state**
-- **所以在组件内dispatch的不再是一个action对象，而是一个函数，函数内进行真正的dispatch action**
+- 异步操作比如发送网络请求的逻辑 ① 放在组件中不合适 ② reducer函数必须是纯函数，也不合适，所以需要**「中间件」**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250415150307760.png" alt="image-20250415150307760" style="zoom:40%;" />
+
+- **在组件内dispatch的不再是一个action对象，而是一个函数，函数内进行真正的dispatch action，网络请求代码放在actionCreators文件中**
+- redux-thunk可以让dispatch，action函数调用
+  - dispatch：用于之后再次派发action
+  - getState：可以获取store中的state
 
 ```jsx
 // index.js
 import { createStore, applyMiddleware } from 'redux'
 import thunk from 'redux-thunk'
+
 const store = createStore(reducer, applyMiddleware(thunk))
-
-// actionCreators.js
-export const fetchPagedataAction = () => {
-    return (dispatch, getState) => {
-        axios.get('xxx').then(res => {
-            const banners = res.data.data.banner.list
-            const recommends = res.data.data.recommend.list
-            dispatch(changeBannersAction(banners))
-            dispatch(changeRecommendsAction(recommends))
-        })
-    }
-}
-
-// Page.jsx
-class Page extends PureComponent {
-    componentDidMount() {
-        this.props.fetchPagedata()
-    }
-    render() {
-        return <h2>Page</h2>
-    }
-}
-const mapDispatchToProps = (dispatch) => ({
-    fetchPagedata() {
-        dispatch(fetchPagedataAction())
-    }
-})
-export default connect(null, mapDispatchToProps)(Page)
 ```
-
-
-
-### combineReducers
-
-- **将多个reducer集合在一起**
 
 ```js
-const reducer = combineReducers({
-    counterInfo: counterReducer,
-    homeInfo: homeReducer
-})
-const store = createStore(reducer)
+// actionCreators.js
+export function deposit(amount, currency) {
+  if(currency === 'USD') return { type: 'account/deposit', payload: amount}
+  
+  return async function(dispatch, getState) {
+    const res = await fetch('xxx')
+    const data = await res.json()
+    const converted = data.rates.USD
+    dispatch({ type: 'account/deposit', payload: converted })  
+  }
+}
 ```
+
+```js
+// Page.jsx
+function Page() {
+  const dispatch = useDispatch()
+  useEffect(() => {dispatch(deposit(100, 'Euro'))}, [])
+   return  (
+        return <h2>Page</h2>
+    )
+}
+```
+
+
 
 
 
@@ -3466,20 +3407,17 @@ const store = createStore(reducer)
 # React ToolKit
 
 - **对redux做了一层封装**
+- 组件使用侧没有变化
 
 
 
 ### configureStore
 
-- 用于创建store对象，传入一个对象，对象有如下属性
-- **reducer：将slice的reducer组成一个对象传入此处**
-- middleWare：传入中间件
-- devTools：默认为true
+- **用于创建store对象**
+- RTK默认对 中间件 和 Redux-devTools 进行了设置
 
 ```js
 import { configureStore } from '@reduxjs/toolkit'
-import counterReducer from './counter'
-import homeReducer from './home'
 
 const store = configureStore({
     reducer: {
@@ -3496,12 +3434,19 @@ export default store
 
 ### createSlice
 
-- 创建一个slice，传入一个对象，对象有如下属性
-- **name属性：用于标记slice的名词**
-- **initialState：初始化值**
-- **reducers：是一个对象，包括多个函数，一个函数类似于之前reducer函数的一个case语句**
-  - **函数参数：state和action**
-- **createSlice返回值是一个对象**
+- 创建一个slice，传入一个对象
+  - name属性：用于标记slice
+  - initialState：初始化值
+  - reducers：是一个对象，包括多个函数，一个函数类似于之前的一个case语句
+
+- 返回值是一个对象
+- 优点 
+  - **RTK会默认创建actionCreators**
+  - **在reducers对象的函数中可以直接对state做修改，RTK底层使用了immer库来保证数据的不可变性**
+    - 利用算法：Persistent Data Structure【持久化数据结构】
+      - 用一种数据结构来保存数据
+      - 当数据被修改时，会返回一个对象，但是新的对象会尽可能利用之前的数据结构，节约内存
+
 
 ```js
 import { createSlice } from '@reduxjs/toolkit'
@@ -3512,57 +3457,18 @@ const counterSlice = createSlice({
         counter: 888
     },
     reducers: {
-        addNumber(state, { payload }) {
-            state.counter += payload
+        addNumber(state, action) {
+            state.counter += action.payload
         },
-        subNumber(state, { payload }) {
-            state.counter -= payload
+        subNumber(state, action) {
+            state.counter -= action.payload
         }
     }
 })
+// 导出RTK默认创建的 actionCreators
 export const { addNumber, subNumber } = counterSlice.actions
+// 导出reducer
 export default counterSlice.reducer
-```
-
-- **在action中可以直接对state数据做修改，实际上RTK底层使用了immer库来保证数据的不可变性**
-- **利用算法：Persistent Data Structure【持久化数据结构】**
-  - **用一种数据结构来保存数据**
-  - **当数据被修改时，会返回一个对象，但是新的对象会尽可能利用之前的数据结构，节约内存**
-
-
-
-
-
-
-
-### 与react结合
-
-```jsx
-import { connect } from 'react-redux'
-class About extends PureComponent {
-    addNumber(num) {
-        this.props.addNumber(num)
-    }
-    render() {
-        const { counter } = this.props
-        return (
-        	<div>
-            	<h2>About Counter: {counter}</h2>
-				<button onClick={e => this.addNumber(5)}>+5</button>
-				<button onClick={e => this.addNumber(8)}>+8</button>
-            </div>
-        )
-    }
-}
-const mapStateToProps = state => ({
-    counter: state.counter.counter
-})
-const mapDispatchToProps = dispatch => ({
-    addNumber(num) {
-        dispatch(addNumber(num))
-    }
-})
-export default connect(mapStateToProps, mapDispatchToProps)(About)
 ```
 
 
@@ -3596,23 +3502,6 @@ const homeSlice = createSlice({
     }
 })
 export default homeSlice.reducer
-
-// 组件
-import { connect } from 'react-redux'
-class Home extends PureComponent {
-    componentDidMount() {
-        this.props.fetchHomeData()
-    }
-    render() {
-        return <h2>home page</h2>
-    }
-}
-const mapDispatchToProps = dispatch => ({
-    fetchHomeData() {
-        dispatch(fetchHomeDataAction())
-    }
-})
-export default connect(null, mapDispatchToProps)(About)
 ```
 
 
@@ -3623,38 +3512,7 @@ export default connect(null, mapDispatchToProps)(About)
 
 
 
-
-
 # React Hooks
-
-- **【Hook是React16.8推出的新特性，它可以让我们在不编写class的情况下使用state和生命周期函数】**
-- 100%向下兼容，可以渐进式使用hook，不需要直接将所有的代码重构为hook
-- **只能在函数式组件的最顶层使用hook，不可以在循环(for)、条件判断(if)、子函数中使用**
-- **可以在自定义hook函数（必须使用use开头）中使用，不可以在普通函数中使用**
-
-
-
-
-
-### 类组件
-
-- **优势**
-  - **类组件可以定义自己的state，用来保存组件自己内部的状态**
-  - **类组件有自己的生命周期，可以在对应的生命周期中完成相应逻辑**
-  - **类组件在状态改变时只会重新执行render函数以及重新调用生命周期函数componentDidUpdate**
-- **劣势**
-  - **随着业务的增多，class组件会变得越来越复杂**
-  - **复杂的this指向**
-
-
-
-
-
-
-
-
-
-
 
 ### useCallBack
 
@@ -3673,8 +3531,8 @@ const HYIncrement = memo(function(props) {
     const { increment } = props
     return (
     	<div>
-            <button onClick={increment}>incre+1</button>
-        </div>
+          <button onClick={increment}>incre+1</button>
+      </div>
     )
 })
 
@@ -3968,55 +3826,11 @@ const mapDispatchToProps = (dispatch) => ({
 export default connect(mapStateToProps, mapDispatchToProps)(App)
 ```
 
-- **使用hook后**
-
-  - **useSelector：**
-
-    - **参数一：将state映射到组件中**
-
-    - **参数二：可以进行比较来决定组件是否重新渲染（引入shallowEqual函数）**
-
-  - **useDispatch：返回dispatch函数，在组件中可以直接使用**
-
-```jsx
-const App = memo((props) => {
-    const { count } = useSelector((state) => {
-        return {
-            count: state.counter.count
-        }
-    }, shallowEqual)
-    const dispatch = useDispatch()
-    function addNumberHandle(num, isAdd = true) {
-        if(isAdd) {
-            dispatch(addNumberAction(num))
-        } else {
-            dispatch(subNumberAction(num))
-        }
-    }
-    return (
-    	<div>
-            <h2>当前计数：{count}</h2>
-            <button onClick={e => addNumberHandle(5)}>+5</button>
-            <button onClick={e => addNumberHandle(8, false)}>-8</button>
-        </div>
-    )
-})
-export default App
-```
-
-
-
 
 
 
 
 ### useTransition
-
-
-
-
-
-
 
 
 

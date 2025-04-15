@@ -47,3 +47,29 @@ server.listen(8000, '127.0.0.1', () => {
 })
 ```
 
+
+
+
+
+##### 路由
+
+```js
+const server = http.createServer((req, res) => {
+  const pathName = req.url
+  if(pathName === '/' || pathName === '/overview') {
+    res.end('this is overview')
+  } else if(pathName === '/product') {
+    res.end('this is prduct')
+  } else {
+    res.writeHead(404, {
+      'Content-type': 'text/html',
+      'my-own-header': 'hello-world'
+    })
+    res.end('<h1>page not found</h1>')
+  }
+	res.end('Hello from the server')
+})
+```
+
+
+
