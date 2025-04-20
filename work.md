@@ -1395,7 +1395,7 @@ as unknown as AxiosRequestHeaders 双重类型断言，绕过ts的类型检查�
 
 # 组件封装
 
-## 函数调用
+### 函数调用
 
 - 动态创建容器 -》 渲染组件 -》 销毁组件时清理dom
 
@@ -1437,7 +1437,21 @@ alert.show('hello world')
 
 
 
+### 对象映射: 某一prop不同值对应不同样式
 
+要求：给组件传入不同type，会有对应的样式
+
+- **通过「对象」来存储映射关系**
+
+```js
+const base = '这是基础样式'
+const styles = {
+  primary: base + 'primary样式',
+  small: base + '小的样式'
+}
+
+<P className={styles[type]}>这是一段文本</p>
+```
 
 
 
@@ -1779,6 +1793,10 @@ indent-15px  文本缩进15px  [text-indent缩写]
 文字不可选 select-none
 
 背景高斯模糊效果 backdrop-blur-16px 
+
+hover、active、focus样式   hover:text-blue
+
+cursor-not-allowed  cursor-pointer
 ```
 
 
@@ -1816,6 +1834,25 @@ indent-15px  文本缩进15px  [text-indent缩写]
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250201145337085.png" alt="image-20250201145337085" style="zoom:33%;" />
 
 - none: 图片将保持原始大小，不缩放，不裁剪
+
+
+
+
+
+
+
+### 断点breakpoint
+
+- 通过**『媒体查询』 **在不同的屏幕尺寸下应用不同的css样式
+
+```js
+@medai (max-width: 755.98px) {}
+@media (min-width: 576px) and (max-width:767.98px) {}
+
+...
+```
+
+
 
 
 

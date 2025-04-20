@@ -1,4 +1,4 @@
- 疑问1：
+  疑问1：
 
 ![image-20250403144328316](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250403144328316.png)
 
@@ -390,6 +390,29 @@ const element = <h2>Hello World</h2>
 const root = ReactDOM.createRoot(document.querySelector("#root"))
 root.render(element)
 ```
+
+
+
+
+
+
+
+### Fragment
+
+- **语法糖：<> </>，相当于<Fragment></Fragment>**
+- **注意：如果需要在Fragment标签上添加属性，那么不能使用【短语法】**
+
+
+
+### portals
+
+- **某些情况下，我们希望渲染的内容独立于当前挂载的DOM元素中（默认都是挂载在id为root的元素上）**
+
+```js
+ReactDOM.createPortal(<h2>内容</h2>, document.querySelector('#why'))
+```
+
+
 
 
 
@@ -923,6 +946,568 @@ useEffect(function() {
 - 捕获阶段的click事件名称 onClickCapture
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250406205540615.png" alt="image-20250406205540615" style="zoom:33%;" />
+
+
+
+### 受控组件
+
+- **在html中，表单元素自己维护state，并根据用户输入进行更新**
+
+- **在React中，状态要保存在组件的state属性中，并且要通过setState()来更新**
+
+- **①在input上设置value属性，表单显示的值将始终为this.state.value，这使得React的state成为唯一数据源**
+
+  **②监听input的change事件在每次按键时都会改变React的state，显示的值将随用户输入而更新**
+
+  **被React以这种方式控制取值的表单输入元素叫做【受控组件】**
+
+```jsx
+class App extends PureComponent {
+      constructor() {
+        super()
+        this.state = {
+          username: ''
+        }
+      }
+      render() {
+        const {username} = this.state
+        return (
+          <div>
+                <input type="text" 
+                       value={username}
+                       onChange={e => this.inputChange(e)}/>
+          </div>
+        )
+      }
+      inputChange(event) {
+        this.setState({
+          username: event.target.value
+        })
+      }
+		// 当多个受控组件由同一个函数处理时
+		inputChange(event) {
+            this.setState({
+              [event.target.name]: event.target.value
+            })
+          }
+    }
+```
+
+
+
+### 非受控组件
+
+- React为非受控组件提供了defaultValue属性，用于设置初始值
+- defaultValue仅在初次渲染时生效
+
+
+
+
+
+
+
+# 组件通信
+
+- **【react要求我们无论是函数还是class声明一个组件，这个组件必须像纯函数一样，保护它们的props不被修改】**
+
+### 父传子-props传递属性
+
+- **父组件通过属性-值的形式来传递数据**
+- **子组件通过props获取数据**
+
+```jsx
+<script type="text/babel">
+    // 类组件
+    class ChildCpn extends React.Component {
+      	// 如果组件没有自己的state，constructor函数也可以省略不写
+      constructor(props) {
+        super(props)
+      }
+      render() {
+        const {name, age, height} = this.props
+        return (
+          <div>
+            {name + ' ' + age + ' ' + height}
+          </div>
+        )
+      }
+    }
+
+	// 函数组件
+	function ChildCpn(props) {
+      const {name, age, height} = props
+      return (
+        <div>
+          {name + ' ' + age + ' ' + height}
+        </div>
+      )
+    }
+    
+    class App extends React.Component {
+      render() {
+        return (
+          <div>
+            <ChildCpn name='why' age='18' height='1.88'/>
+          </div>
+        )
+      }
+    }
+</script>
+```
+
+
+
+### 父传子-属性验证
+
+- **利用库prop-types**
+
+```jsx
+import PropTypes from 'prop-types'
+
+function ChildCpn(props) {
+    const {name, age} = props
+    return (
+        <div>
+          {name + ' ' + age}
+        </div>
+    )
+}
+//类型
+ChildCpn.propTypes = {
+    name: PropTypes.string.isRequired, // 字符串类型、必传
+    age: PropTypes.number,
+}
+//默认值
+ChildCpn.defaultProps = {
+    name: 'james',
+    age: 20,
+}
+
+class App extends React.Component {
+    render() {
+        return (
+          <div>
+            <ChildCpn name='kobe' age={19}/>
+          </div>
+        )
+    }
+}
+```
+
+
+
+### 子传父-props传递函数
+
+- **通过props，父组件给子组件传递一个回调函数，子组件中调用这个函数**
+
+```jsx
+<script type="text/babel">
+    class AddCounter extends React.Component {
+      addCount(count) {
+          this.props.addClick(count)
+      }
+      render() {
+        return (
+          <div>
+            <button onClick={e => this.addCount(1)}>+1</button>
+            <button onClick={e => this.addCount(5)}>+5</button>
+            <button onClick={e => this.addCount(10)}>+10</button>
+          </div>
+        )
+      }
+    }
+
+    class App extends React.Component {
+      constructor() {
+        super()
+        this.state = {
+          counter: 100
+        }
+      }
+      render() {
+        return (
+          <div>
+            <span>当前计数：{this.state.counter}</span>
+            <AddCounter addClick={count => this.changeCounter(count)}/>
+          </div>
+        )
+      }
+      changeCounter(count) {
+        this.setState({
+          counter: this.state.counter + count
+        })
+      }
+    }
+</script>
+```
+
+
+
+### tabControl案例
+
+```jsx
+<script type="text/babel">
+    class TabControl extends React.Component {
+      constructor(props) {
+        super(props)
+        this.state = {
+          currentIndex: 0
+        }
+      }
+      render() {
+        const {titles} = this.props
+        const {currentIndex} = this.state
+        return (
+          <div className='tab-control'>
+            {
+              titles.map((item, index) => {
+                return (
+                  <div key={index} 
+                       className={'tab-item ' + (currentIndex == index ? 'active' : '')}
+                       onClick={e => {this.itemClick(index)}}>
+                    <span>{item}</span>
+                  </div>
+                )
+              })
+            }
+          </div>
+        )
+      }
+      itemClick(index) {
+        const {oneClick} = this.props
+        oneClick(index)
+        this.setState({
+          currentIndex: index
+        })
+      }
+    }
+
+    class App extends React.Component {
+      constructor(props) {
+        super(props)
+        this.titles = ['新款','流行','精选']
+        this.state = {
+          currentTitle: '新款'
+        }
+      }
+      render() {
+        return ( 
+          <div>
+            <TabControl titles={this.titles}
+                        oneClick = {index => {this.oneClick(index)}}/>
+            <h2>{this.state.currentTitle}</h2>
+          </div>
+        )
+      }
+      oneClick(index) {
+        this.setState({
+          currentTitle: this.titles[index]
+        })
+      }
+    }
+</script>
+```
+
+
+
+
+
+### 插槽slot
+
+- **①父组件使用子组件时，子组件写成双标签，将插槽内容直接放进去，子组件通过this.props.children就可以拿到插槽内容**
+
+- **如果children子元素有一个，那`this.props.children`就是子元素**
+
+  **如果children子元素有多个，那`this.props.children`是多个子元素的数组**
+
+```jsx
+<script type="text/babel">
+    class NavBar1 extends React.Component {
+      render() {
+        const {children} = this.props
+        return (
+          <div className='nav-bar'>
+            <div className="nav-item nav-left">{children[0]}</div>
+            <div className="nav-item nav-center">{children[1]}</div>
+            <div className="nav-item nav-right">{children[2]}</div>
+          </div>
+        )
+      }
+    }
+
+    class App extends React.Component {
+      constructor() {
+        super()
+      }
+      render() {
+        return (
+          <div>
+            <NavBar1>
+              <span>aaa</span>
+              <strong>bbb</strong>
+              <a href="#">ccc</a>
+            </NavBar1>
+          </div>
+        )
+      }
+    }
+</script>
+```
+
+
+
+- **②通过props传递React元素【推荐】**
+
+```jsx
+<script type="text/babel">
+    class NavBar2 extends React.Component {
+      render() {
+        const { leftSlot, centerSlot, rightSlot } = this.props
+        return (
+          <div className='nav-bar'>
+            <div className="nav-item nav-left">{leftSlot}</div>
+            <div className="nav-item nav-center">{centerSlot}</div>
+            <div className="nav-item nav-right">{rightSlot}</div>
+          </div>
+        )
+      }
+    }
+
+    class App extends React.Component {
+      constructor() {
+        super()
+      }
+      render() {
+        return (
+          <div>
+            <NavBar2 leftSlot={<span>aaa</span>}
+                     centerSlot={<strong>bbb</strong>}
+                     rightSlot={<a href="#">ccc</a>}/>
+          </div>
+        )
+      }
+    }
+</script>
+```
+
+
+
+
+
+### Context-跨组件通信
+
+- **context提供了一种在组件之间共享值的方式，而不必通过组件树逐层传递props**
+
+- **conetxt设计目的是为了共享对于一个组件树而言全局的数据，比如当前用户信息**
+
+- API:
+
+  - **`React.createContext()`：创建需要共享的context对象**
+
+  - **`context.Provider`：context对象的Provider组件**
+
+    **`Provider`接收value属性，传递给消费组件，当value值发生变化时，消费组件都会重新渲染**
+
+  - **`context.Consumer`：context对象的Consumer组件，函数/类组件中均可使用**
+
+    **函数作为子元素，函数参数是value，返回一个React节点**
+
+  - **当消费组件是类组件时：`类.contextType`可以被赋值为context对象，类组件就可以通过`this.context`来消费value**
+
+```js
+// APP组件直接向孙组件ProfileHeader传值
+<script type="text/babel">
+    // 1、创建Context对象
+	const UserContext = React.createContext()
+   
+    class ProfileHeader extends React.Component {
+      render() {
+        return (
+          const {nickname, level} = this.context
+          <div>
+            <div>用户昵称：{nickname}</div>
+            <div>用户等级：{level}</div>
+          </div>
+        )
+      }
+    }
+    // 3、设置孙组件的contextType为某一个context
+    ProfileHeader.contextType = UserContext
+
+    class Profile extends React.Component {
+      render() {
+        return (
+          <div>
+            <ProfileHeader/>
+            我是Profile组件
+          </div>
+        )
+      }
+    }
+
+    class App extends React.Component {
+      constructor() {
+        super()
+        this.state = {
+          nickname: 'kobe',
+          level: 99
+        }
+      }
+      render() {
+        return (
+          <div>
+            {/*2、使用创建的context的Provider包裹子组件*/}
+            <UserContext.Provider value={...this.state}>
+              <Profile/>
+            </UserContext.Provider>
+            我是App组件
+          </div>
+        )
+      }
+    }
+</script>
+```
+
+```jsx
+	/*函数组件形式*/
+// <UserContext.Consumer>组件，内部自动调用函数，将共享值value作为参数【也可以用于类组件】
+	function ProfileHeader() {
+      return (
+        <UserContext.Consumer>
+          {
+            (value) => {
+              return (
+                <div>
+                  <div>用户昵称：{value.nickname}</div>
+                  <div>用户等级：{value.level}</div>
+                </div>
+              )
+            }
+          }
+        </UserContext.Consumer>
+      )
+    }
+```
+
+
+
+
+
+
+
+
+
+# setState
+
+- **React没有实现类似于vue中的数据劫持来监听数据的变化，必须通过setState来告知React数据已经发生了变化，希望React根据最新的state来重新渲染界面**
+- **setState方法是从React.Component继承过来的**
+
+### 基本使用
+
+- **setState底层是通过Object.assign()来实现的**
+
+```jsx
+const o1 = { a: 1 };
+const o2 = { b: 2 };
+
+const obj1 = Object.assign(o1, o2);
+console.log(obj1); // { a: 1, b: 2 }
+console.log(o1); // { a: 1, b: 2 }，目标对象本身发生了变化
+console.log(obj1 === o1)  // true
+```
+
+- **this.setState()传参：**
+  - **对象**
+  - **回调函数：接受state和props两个参数，返回一个对象**
+
+```jsx
+this.setState((state, props) => {
+    console.log(state.message)
+    return {
+        message: '你好啊李银河'
+    }
+})
+```
+
+- **this.setState()是异步的，如果希望在【数据合并】之后，获取到更新后的数据执行一些逻辑代码，可以在setState中传入第二个参数：callback**
+
+```js
+this.setState({message: '你好啊李银河'}, () => {
+    console.log('+++++', this.state.message)   //拿到的是更新后的数据
+})
+console.log('-----', this.state.message)  //拿到的是更新前的数据
+```
+
+
+
+### 异步调用
+
+- **显著地提高性能**
+
+  **如果每次调用setState都进行一次更新，那么意味着render函数会被频繁调用，界面重新渲染，这样效率很低。最好的方法是获取到多个更新，之后进行批量更新**
+
+```js
+// 该方法执行，counter只会+1
+addClick1() {
+    this.setState({counter: this.state.counter + 1})
+    this.setState({counter: this.state.counter + 1})
+    this.setState({counter: this.state.counter + 1})
+}
+
+// 该方法执行，counter会+3
+addClick2() {
+    this.setState((state) => {
+        return {
+            counter: state.counter + 1
+        }
+    })
+    this.setState((state) => {
+        return {
+            counter: state.counter + 1
+        }
+    })this.setState((state) => {
+        return {
+            counter: state.counter + 1
+        }
+    })
+}
+```
+
+- **state和props一致性**
+
+  **如果同步更新了state，但是render函数还没有执行，那么state和传给子组件的props不能保持同步**
+
+
+
+### React18前
+
+- **在组件生命周期或React事件处理中，setState是异步**
+- **在setTimeout或者原生dom事件中，setState是同步**
+
+``` js
+changeText() {
+    setTimeout(() =>{
+        this.setState({message: '你好吖，李银河'})
+        console.log(this.state.message)  // 你好吖，李银河
+    }, 0)
+}
+
+componentDidMount() {
+    const btnEl = document.getElementByID('btn')
+    btnEl.addEventListener('click', () => {
+        this.setState({message: '你好吖，李银河'})
+        console.log(this.state.message)
+    })
+}
+```
+
+- **React18之后，默认所有的操作都被放到了批处理中（Automatic Batching）**
+
+
+
+
+
+
 
 
 
@@ -1515,7 +2100,7 @@ root.render(
 
 ##### 默认路由
 
-- 在Route组件中添加index属性，默认子路由 
+- 在Route组件中添加index属性，标记默认展示的路由 
 
 ```js
 <Routes>
@@ -1538,7 +2123,7 @@ root.render(
 
 ```js
 <Routes>
-  <Route index element={<Navigate to='home'/>}/>
+  <Route index element={<Navigate to='home' replace/>}/>
   <Route path="home" element={<Home/>}/>
   <Route path="about" element={<About/>}/>
 </Routes>
@@ -1792,6 +2377,577 @@ root.render(
 
 
 
+### 其它hook
+
+#### useNavigation()
+
+- 返回的对象有一个state属性，为loading时表示跳转中，为idle表示不在跳转中
+- 可以利用它来展示loading
+
+```js
+import { useNavigation } from "react-router";
+
+const navigation = useNavigation()
+navigation.state // loading 、idle
+```
+
+ 
+
+
+
+#### useRouteError()
+
+- 访问抛出的错误
+
+```js
+const error = useRouteError()
+```
+
+
+
+
+
+### 数据获取
+
+#### useLoaderData()
+
+- **时机：路由匹配到时**
+
+```jsx
+// 路由配置中定义
+const router = createBrowserRouter([
+  {
+    path: '/user/:id',
+    element: <UserPage/>,
+    loader: async ({params}) => {
+			const res = await fetch(`/api/users/${params.id}`)
+			return res.json()
+    }
+  }
+])
+
+// 组件中使用
+import { useLoaderData } from 'react-router-dom'
+function UserPage() {
+  const user = useLoaderData()  // 获取loader返回的数据
+  return (
+    <p>{user.name}</p>
+  )
+}
+```
+
+- 并行数据加载，支持promise.all
+
+```jsx
+const router = createBrowserRouter([
+  {
+    path: '/user/:id',
+    element: <UserPage/>,
+    loader: async () => {
+			const [stats, projects] = await Promise.all([fetch('/api/stats'), fetch('/api/projects')])
+      return {
+        stats: await stats.json()
+        prijects: await projects.json()
+      }
+    }
+  }
+])
+```
+
+
+
+
+
+#### useFetcher()
+
+- Fetches data from a route.
+- 在不触发页面导航的情况下，加载数据
+
+```js
+const fetcher = useFetcher()
+useEffect(() => {
+  if(!fetcher.data && fetcher.state === 'idle') fetcher.load('/menu') 
+  // fetcher.data此时是menu路由对应loader获取的数据
+  
+}, [fetcher])
+```
+
+- **useLoaderData是路由初始数据加载；useFetcher是客户端动态交互**
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# redux
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250415100414469.png" alt="image-20250415100414469" style="zoom:35%;" />
+
+- react在视图层帮助我们解决了DOM的渲染过程，但是state依然是留给我们自己来管理
+
+- 可以是组件定义自己的state，可以是组件之间通过props来通信，或是通过context进行数据间的共享
+
+- 当项目变得很庞大时，状态变得多且复杂，这时就可以使用redux
+
+  redux是一个帮助我们管理state的容器，是JavaScript的状态容器，提供了可预测的状态管理
+
+- ** ①单一数据源：通常只创建一个store，让整个应用程序的state变得方便维护、追踪、修改**
+
+- **②state是只读的：唯一修改state的方式就是派发action**
+
+- **③使用纯函数来进行修改：通过reducer将旧state和action联系在一起，返回一个新的state**
+
+ 
+
+### 核心概念
+
+#### ① store
+
+- createStore()
+
+#### ② action
+
+- **action是一个js对象，用于描述更新的type和content**
+- **所有数据的变化，必须通过派发（dispatch）action来更新**
+
+```js
+const action = {type: 'ADD_FRIEND', info: {name: 'why', age: 18}}
+const action = {type: 'CHANGE_NAME', payload: {index: 0, newName: 'kobe'}}
+```
+
+#### ③ reducer
+
+- **reducer是一个纯函数， 不能产生副作用**
+- **reducer的作用是根据当前的state和action结合起来生成一个新的state**
+
+
+
+### 基本使用
+
+- **定义初始状态--》dispatch actions --》 reducer处理 --》 改变store的state**
+
+```js
+const { createStore } = require('redux')
+
+// 初始状态
+const defaultState = {
+  counter: 0
+} 
+
+//3、reducer: state和action的桥梁【必须是纯函数】
+function reducer(state = defaultState, action) {
+  switch(action.type) {
+    case 'INCREMENT':
+      return {...state, counter: state.counter + 1}
+    case 'DECREMENT':
+      return {...state, counter: state.counter - 1}
+    default:
+      return state
+  }
+}
+
+//1、创建store，将reducer 函数传入
+const store = createStore(reducer)
+
+//2、派发action
+store.dispatch({type: 'INCREMENT'})
+store.dispatch({type: 'DECREMENT'})
+
+//4、订阅state的修改
+store.subscribe(() => {
+  console.log("订阅数据的变化"  + store.getState())
+})
+```
+
+
+
+
+
+### 文件划分
+
+- **定义的所有actionCreators函数**
+- **actionCreators和reducer函数中的type常量是一致的**
+- **将reducer函数放到独立的reducer.js中**
+- **将创建store的过程放在index.js中**
+
+##### index.js
+
+```js
+import { createStore } from 'redux'
+import { combineReducers } from 'react'
+import reducer from './reducer'
+
+const store = createStore(reducer)
+
+export default store
+
+// 当有多个reducer时
+const rootReducer = combineReducers({
+    counterInfo: counterReducer,
+    homeInfo: homeReducer
+})
+const store = createStore(rootReducer)
+```
+
+
+
+##### reducer.js
+
+```js
+export const ADD_NUMBER = 'ADD_NUMBER'
+export const SUB_NUMBER = 'SUB_NUMBER'
+
+const defaultState = {
+  counter: 100
+}
+
+export default function reducer(state = defaultState, action) {
+  switch(action.type) {
+    case ADD_NUMBER:
+      return {...state, counter: state.counter + action.num}
+    case SUB_NUMBER:
+      return {...state, counter: state.counter - action.num}
+    default: 
+      return state
+  }
+}
+
+export const add_action = (num) => ({
+  type: ADD_NUMBER,
+  num
+})
+
+export const sub_action = (num) => ({
+  type: SUB_NUMBER,
+  num
+})
+```
+
+
+
+
+
+
+
+### react-redux
+
+#### **Provider组件**
+
+```jsx
+//index.js
+import { Provider } from 'react-redux'
+import store from './store'
+const root = ReactDOM.createRoot(document.querySelector("#root"))
+root.render(
+    <Provider store={store}>
+    	<App/>
+    </Provider>
+)
+```
+
+
+
+
+
+#### **useSelector()**
+
+**返回store中某一reducer的数据**
+
+- 参数一：函数
+- 参数二：可以进行比较来决定组件是否重新渲染（引入shallowEqual函数）
+
+```js
+// 获取某一slice的某一属性值
+const cart = useSelector((store) => store.cartInfo.cart)
+const { cart } = useSelector((store) => store.cartInfo)
+
+// 根据某一slice的某一属性值进行计算
+const cartQuan tity = useSelector((store) => store.cart.reduce((acc, cur) => acc + cur.quantity, 0))
+```
+
+
+
+
+
+#### **useDispatch()**
+
+**返回dispatch函数**
+
+```jsx
+const App = memo((props) => {
+    const { count } = useSelector((store) => store.counteInfo , shallowEqual)
+    const dispatch = useDispatch()
+    function addNumberHandle(num, isAdd = true) {
+        if(isAdd) {
+            dispatch(addNumberAction(num))
+        } else {
+            dispatch(subNumberAction(num))
+        }
+    }
+    return (
+    	<div>
+            <h2>当前计数：{count}</h2>
+            <button onClick={e => addNumberHandle(5)}>+5</button>
+            <button onClick={e => addNumberHandle(8, false)}>-8</button>
+        </div>
+    )
+})
+export default App
+```
+
+
+
+- 之前用法
+  - **connect(mapStateToProps,  mapDispatchToProps)(Cpn)**
+  - `mapStateToProps`函数是将store的state映射到组件的props中
+  - `mapDispatchToProps`函数是将store的派发事件映射到组件的props中
+
+```js
+//page.js
+import { connect } from 'react-redux'
+class Page extends PureComponent {
+    calcNum(num, idAdd) {
+        if(isAdd) {
+            this.props.addNumber(1)
+        } else {
+            this.props.subNumber(1)
+        }
+    }
+    render() {
+        const { counter } = this.props
+        return (
+          <>
+            <div>{counter}</div>
+            <button onClick={e => this.calcNum(1, true)}>+1</button>
+						<button onClick={e => this.calcNum(1, false)}>-1</button>
+					</>
+        )
+    }
+}
+const mapStateToProps = state => ({
+    counter: state.counter
+}) 
+const mapDispatchToProps = dispatch => ({
+    addNumber: num => dispatch(addNumberAction(num)),
+    subNumber: num => dispatch(subNumberAction(num))
+})
+export default connect(mapStateToProps, mapDispatchToProps)(Page)
+```
+
+
+
+
+
+
+
+### redux-thunk
+
+- 异步操作比如发送网络请求的逻辑 ① 放在组件中不合适 ② reducer函数必须是纯函数，也不合适，所以需要**「中间件」**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250415150307760.png" alt="image-20250415150307760" style="zoom:40%;" />
+
+- **在组件内dispatch的不再是一个action对象，而是一个异步 函数，函数内进行真正的dispatch action，网络请求代码放在actionCreators文件中**
+- redux-thunk可以让dispatch，action函数调用
+  - dispatch：用于之后再次派发action
+  - getState：可以获取store中的state
+
+```jsx
+// index.js
+import { createStore, applyMiddleware } from 'redux'
+import thunk from 'redux-thunk'
+
+const store = createStore(reducer, applyMiddleware(thunk))
+```
+
+```js
+// actionCreators.js
+export function deposit(amount, currency) {
+  if(currency === 'USD') return { type: 'account/deposit', payload: amount}
+  
+  return async function(dispatch, getState) {
+    const res = await fetch('xxx')
+    const data = await res.json()
+    const converted = data.rates.USD
+    dispatch({ type: 'account/deposit', payload: converted })  
+  }
+}
+```
+
+```js
+// Page.jsx
+function Page() {
+  const dispatch = useDispatch()
+  useEffect(() => {dispatch(deposit(100, 'Euro'))}, [])
+   return  (
+        return <h2>Page</h2>
+    )
+}
+```
+
+
+
+
+
+
+
+# React ToolKit
+
+- **对redux做了一层封装**
+- 组件使用侧没有变化
+
+
+
+### configureStore( )
+
+- **用于创建store对象**
+- RTK默认对 中间件 和 Redux-devTools 进行了设置
+
+```js
+import { configureStore } from '@reduxjs/toolkit'
+
+const store = configureStore({
+    reducer: {
+        counter: counterReducer,
+        home: homeReducer
+    }
+})
+export default store
+```
+
+- Provider组件
+
+```js
+import store from './store'
+<React.StrictMode>
+	<Provider store={store}>
+    	<App/>
+  </Provider>
+</React.StrictMode>
+```
+
+
+
+
+
+### createSlice()
+
+- **一个slice，传入一个对象**
+  - name属性：用于标记slice
+  - initialState：初始化值
+  - reducers：是一个对象，包括多个函数，一个函数类似于之前的一个case语句
+- 返回值是一个对象
+- 优点 
+  - **RTK会默认创建actionCreators**
+  - **在reducers对象的函数中可以直接对state做修改，RTK底层使用了immer库来保证数据的不可变性**
+    - 利用算法：Persistent Data Structure【持久化数据结构】
+      - 用一种数据结构来保存数据
+      - 当数据被修改时，会返回一个对象，但是新的对象会尽可能利用之前的数据结构，节约内存
+
+
+```js
+import { createSlice } from '@reduxjs/toolkit'
+
+const counterSlice = createSlice({
+    name: 'counter',
+    initialState: {
+        counter: 888
+    },
+    reducers: {
+        addNumber(state, action) {
+            state.counter += action.payload
+        },
+        subNumber(state, action) {
+            state.counter -= action.payload
+        }
+    }
+})
+// 导出RTK默认创建的 actionCreators
+export const { addNumber, subNumber } = counterSlice.actions
+// 导出reducer
+export default counterSlice.reducer
+```
+
+- 在一个reducer函数想用另一个reducer函数
+
+```js
+reducers: {
+  testNumber(state, action) {
+    counterSlice.caseReducers.addNumber(state, action)
+  }
+}
+```
+
+
+
+
+
+
+
+### createAsyncThunk()
+
+- 接受一个动作类型字符串和一个异步函数
+- 异步函数执行有三种状态：pending/fulfilled/ rejected
+
+```jsx
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+
+export const fetchHomeData = createAsyncThunk('fetch/homedata', async () => {
+    const res = await axios.get('xxx')
+    // 返回结果，action状态变为fulfilled
+    return res.data
+})
+
+const homeSlice = createSlice({
+    name: 'home',
+    initialState: {
+        data: null,
+      	error: '',
+        isLoading: false,
+    },
+    extraReducers: (builder) => {
+      	builder
+        	.addCase(fetchHomeData.pending, (state, action) => {
+            state.isLoading = true
+          })
+          .addCase(fetchHomeData.fulfilled, (state, action) => {
+            state.isLoading = false
+          	state.data = action.payload
+          })
+      		.addCase(fetchHomeData.rejected, (state, action) => {
+            state.isLoading = false
+          	state.error = action.error.messgae
+          })
+    }
+})
+
+// 使用侧
+const dispatch = useDispatch()
+dispatch(fetchHomeData())
+```
+
+
+
+
+
 
 
 
@@ -1981,510 +3137,9 @@ const HomePage = lazy(() => import('./pages/Homepage'))
 
 
 
-# 组件通信
 
-- **【react要求我们无论是函数还是class声明一个组件，这个组件必须像纯函数一样，保护它们的props不被修改】**
 
-### 父传子-props传递属性
-
-- **父组件通过属性-值的形式来传递数据**
-- **子组件通过props获取数据**
-
-```jsx
-<script type="text/babel">
-    // 类组件
-    class ChildCpn extends React.Component {
-      	// 如果组件没有自己的state，constructor函数也可以省略不写
-      constructor(props) {
-        super(props)
-      }
-      render() {
-        const {name, age, height} = this.props
-        return (
-          <div>
-            {name + ' ' + age + ' ' + height}
-          </div>
-        )
-      }
-    }
-
-	// 函数组件
-	function ChildCpn(props) {
-      const {name, age, height} = props
-      return (
-        <div>
-          {name + ' ' + age + ' ' + height}
-        </div>
-      )
-    }
-    
-    class App extends React.Component {
-      render() {
-        return (
-          <div>
-            <ChildCpn name='why' age='18' height='1.88'/>
-          </div>
-        )
-      }
-    }
-</script>
-```
-
-
-
-### 父传子-属性验证
-
-- **利用库prop-types**
-
-```jsx
-import PropTypes from 'prop-types'
-
-function ChildCpn(props) {
-    const {name, age} = props
-    return (
-        <div>
-          {name + ' ' + age}
-        </div>
-    )
-}
-//类型
-ChildCpn.propTypes = {
-    name: PropTypes.string.isRequired, // 字符串类型、必传
-    age: PropTypes.number,
-}
-//默认值
-ChildCpn.defaultProps = {
-    name: 'james',
-    age: 20,
-}
-
-class App extends React.Component {
-    render() {
-        return (
-          <div>
-            <ChildCpn name='kobe' age={19}/>
-          </div>
-        )
-    }
-}
-```
-
-
-
-### 子传父-props传递函数
-
-- **通过props，父组件给子组件传递一个回调函数，子组件中调用这个函数**
-
-```jsx
-<script type="text/babel">
-    class AddCounter extends React.Component {
-      addCount(count) {
-          this.props.addClick(count)
-      }
-      render() {
-        return (
-          <div>
-            <button onClick={e => this.addCount(1)}>+1</button>
-            <button onClick={e => this.addCount(5)}>+5</button>
-            <button onClick={e => this.addCount(10)}>+10</button>
-          </div>
-        )
-      }
-    }
-
-    class App extends React.Component {
-      constructor() {
-        super()
-        this.state = {
-          counter: 100
-        }
-      }
-      render() {
-        return (
-          <div>
-            <span>当前计数：{this.state.counter}</span>
-            <AddCounter addClick={count => this.changeCounter(count)}/>
-          </div>
-        )
-      }
-      changeCounter(count) {
-        this.setState({
-          counter: this.state.counter + count
-        })
-      }
-    }
-</script>
-```
-
-
-
-### tabControl案例
-
-```jsx
-<script type="text/babel">
-    class TabControl extends React.Component {
-      constructor(props) {
-        super(props)
-        this.state = {
-          currentIndex: 0
-        }
-      }
-      render() {
-        const {titles} = this.props
-        const {currentIndex} = this.state
-        return (
-          <div className='tab-control'>
-            {
-              titles.map((item, index) => {
-                return (
-                  <div key={index} 
-                       className={'tab-item ' + (currentIndex == index ? 'active' : '')}
-                       onClick={e => {this.itemClick(index)}}>
-                    <span>{item}</span>
-                  </div>
-                )
-              })
-            }
-          </div>
-        )
-      }
-      itemClick(index) {
-        const {oneClick} = this.props
-        oneClick(index)
-        this.setState({
-          currentIndex: index
-        })
-      }
-    }
-
-    class App extends React.Component {
-      constructor(props) {
-        super(props)
-        this.titles = ['新款','流行','精选']
-        this.state = {
-          currentTitle: '新款'
-        }
-      }
-      render() {
-        return ( 
-          <div>
-            <TabControl titles={this.titles}
-                        oneClick = {index => {this.oneClick(index)}}/>
-            <h2>{this.state.currentTitle}</h2>
-          </div>
-        )
-      }
-      oneClick(index) {
-        this.setState({
-          currentTitle: this.titles[index]
-        })
-      }
-    }
-</script>
-```
-
-
-
-
-
-### 插槽slot
-
-- **①父组件使用子组件时，子组件写成双标签，将插槽内容直接放进去，子组件通过this.props.children就可以拿到插槽内容**
-
-- **如果children子元素有一个，那`this.props.children`就是子元素**
-
-  **如果children子元素有多个，那`this.props.children`是多个子元素的数组**
-
-```jsx
-<script type="text/babel">
-    class NavBar1 extends React.Component {
-      render() {
-        const {children} = this.props
-        return (
-          <div className='nav-bar'>
-            <div className="nav-item nav-left">{children[0]}</div>
-            <div className="nav-item nav-center">{children[1]}</div>
-            <div className="nav-item nav-right">{children[2]}</div>
-          </div>
-        )
-      }
-    }
-
-    class App extends React.Component {
-      constructor() {
-        super()
-      }
-      render() {
-        return (
-          <div>
-            <NavBar1>
-              <span>aaa</span>
-              <strong>bbb</strong>
-              <a href="#">ccc</a>
-            </NavBar1>
-          </div>
-        )
-      }
-    }
-</script>
-```
-
-
-
-- **②通过props传递React元素【推荐】**
-
-```jsx
-<script type="text/babel">
-    class NavBar2 extends React.Component {
-      render() {
-        const { leftSlot, centerSlot, rightSlot } = this.props
-        return (
-          <div className='nav-bar'>
-            <div className="nav-item nav-left">{leftSlot}</div>
-            <div className="nav-item nav-center">{centerSlot}</div>
-            <div className="nav-item nav-right">{rightSlot}</div>
-          </div>
-        )
-      }
-    }
-
-    class App extends React.Component {
-      constructor() {
-        super()
-      }
-      render() {
-        return (
-          <div>
-            <NavBar2 leftSlot={<span>aaa</span>}
-                     centerSlot={<strong>bbb</strong>}
-                     rightSlot={<a href="#">ccc</a>}/>
-          </div>
-        )
-      }
-    }
-</script>
-```
-
-
-
-
-
-### Context-跨组件通信
-
-- **context提供了一种在组件之间共享值的方式，而不必通过组件树逐层传递props**
-
-- **conetxt设计目的是为了共享对于一个组件树而言全局的数据，比如当前用户信息**
-
-- API:
-
-  - **`React.createContext()`：创建需要共享的context对象**
-
-  - **`context.Provider`：context对象的Provider组件**
-
-    **`Provider`接收value属性，传递给消费组件，当value值发生变化时，消费组件都会重新渲染**
-
-  - **`context.Consumer`：context对象的Consumer组件，函数/类组件中均可使用**
-
-    **函数作为子元素，函数参数是value，返回一个React节点**
-  
-  - **当消费组件是类组件时：`类.contextType`可以被赋值为context对象，类组件就可以通过`this.context`来消费value**
-
-```js
-// APP组件直接向孙组件ProfileHeader传值
-<script type="text/babel">
-    // 1、创建Context对象
-	const UserContext = React.createContext()
-   
-    class ProfileHeader extends React.Component {
-      render() {
-        return (
-          const {nickname, level} = this.context
-          <div>
-            <div>用户昵称：{nickname}</div>
-            <div>用户等级：{level}</div>
-          </div>
-        )
-      }
-    }
-    // 3、设置孙组件的contextType为某一个context
-    ProfileHeader.contextType = UserContext
-
-    class Profile extends React.Component {
-      render() {
-        return (
-          <div>
-            <ProfileHeader/>
-            我是Profile组件
-          </div>
-        )
-      }
-    }
-
-    class App extends React.Component {
-      constructor() {
-        super()
-        this.state = {
-          nickname: 'kobe',
-          level: 99
-        }
-      }
-      render() {
-        return (
-          <div>
-            {/*2、使用创建的context的Provider包裹子组件*/}
-            <UserContext.Provider value={...this.state}>
-              <Profile/>
-            </UserContext.Provider>
-            我是App组件
-          </div>
-        )
-      }
-    }
-</script>
-```
-
-```jsx
-	/*函数组件形式*/
-// <UserContext.Consumer>组件，内部自动调用函数，将共享值value作为参数【也可以用于类组件】
-	function ProfileHeader() {
-      return (
-        <UserContext.Consumer>
-          {
-            (value) => {
-              return (
-                <div>
-                  <div>用户昵称：{value.nickname}</div>
-                  <div>用户等级：{value.level}</div>
-                </div>
-              )
-            }
-          }
-        </UserContext.Consumer>
-      )
-    }
-```
-
-
-
-
-
-
-
-# setState
-
-- **React没有实现类似于vue中的数据劫持来监听数据的变化，必须通过setState来告知React数据已经发生了变化，希望React根据最新的state来重新渲染界面**
-- **setState方法是从React.Component继承过来的**
-
-### 基本使用
-
-- **setState底层是通过Object.assign()来实现的**
-
-```jsx
-const o1 = { a: 1 };
-const o2 = { b: 2 };
-
-const obj1 = Object.assign(o1, o2);
-console.log(obj1); // { a: 1, b: 2 }
-console.log(o1); // { a: 1, b: 2 }，目标对象本身发生了变化
-console.log(obj1 === o1)  // true
-```
-
-- **this.setState()传参：**
-  - **对象**
-  - **回调函数：接受state和props两个参数，返回一个对象**
-
-```jsx
-this.setState((state, props) => {
-    console.log(state.message)
-    return {
-        message: '你好啊李银河'
-    }
-})
-```
-
-- **this.setState()是异步的，如果希望在【数据合并】之后，获取到更新后的数据执行一些逻辑代码，可以在setState中传入第二个参数：callback**
-
-```js
-this.setState({message: '你好啊李银河'}, () => {
-    console.log('+++++', this.state.message)   //拿到的是更新后的数据
-})
-console.log('-----', this.state.message)  //拿到的是更新前的数据
-```
-
-
-
-### 异步调用
-
-- **显著地提高性能**
-
-  **如果每次调用setState都进行一次更新，那么意味着render函数会被频繁调用，界面重新渲染，这样效率很低。最好的方法是获取到多个更新，之后进行批量更新**
-
-```js
-// 该方法执行，counter只会+1
-addClick1() {
-    this.setState({counter: this.state.counter + 1})
-    this.setState({counter: this.state.counter + 1})
-    this.setState({counter: this.state.counter + 1})
-}
-
-// 该方法执行，counter会+3
-addClick2() {
-    this.setState((state) => {
-        return {
-            counter: state.counter + 1
-        }
-    })
-    this.setState((state) => {
-        return {
-            counter: state.counter + 1
-        }
-    })this.setState((state) => {
-        return {
-            counter: state.counter + 1
-        }
-    })
-}
-```
-
-- **state和props一致性**
-
-  **如果同步更新了state，但是render函数还没有执行，那么state和传给子组件的props不能保持同步**
-
-
-
-### React18前
-
-- **在组件生命周期或React事件处理中，setState是异步**
-- **在setTimeout或者原生dom事件中，setState是同步**
-
-``` js
-changeText() {
-    setTimeout(() =>{
-        this.setState({message: '你好吖，李银河'})
-        console.log(this.state.message)  // 你好吖，李银河
-    }, 0)
-}
-
-componentDidMount() {
-    const btnEl = document.getElementByID('btn')
-    btnEl.addEventListener('click', () => {
-        this.setState({message: '你好吖，李银河'})
-        console.log(this.state.message)
-    })
-}
-```
-
-- **React18之后，默认所有的操作都被放到了批处理中（Automatic Batching）**
-
-<img src="D:\DeskTop\笔记\typora-images\react180sutomatic batch.jpg" style="zoom:90%;" />
-
-
-
-
-
-
-
-# 性能优化
+# 性能优化(类组件)
 
 - App根组件下有很多子组件，只要是修改了App中的数据，所有组件默认都需要重新render，进行diff算法，性能很低
 - 事实上，子组件render应该有一个前提，就是依赖的数据（state、props）发生改变时，再调用自己的render方法
@@ -2589,148 +3244,199 @@ export default Profile
 
 
 
-# ref 
 
-- **方式一【弃用】：在html元素上绑定ref字符串**
 
-- **方式二【推荐】：通过`createRef()`创建ref对象，绑定到元素上**
-  
-  - **ref属性用于html元素时，其current属性是dom元素**
-  - **ref属性用于class组件时，其current属性是类组件的实例对象**
-  - **ref不可用于函数组件上，因为它没有实例，可以通过forwardRef进行ref传递，传给内部dom**
-  
-  ```jsx
-  import { forwardRef } from 'react'
-  const Home = forwardRef(function(props, ref) {
-      return (
-      	<div>
-          	<h2 ref={ref}>Home</h2>
+# CSS样式
+
+### 内联样式
+
+- 优点：
+  - **样式之间不会有冲突**
+  - **可以动态获取当前state中的状态**
+- 缺点：
+  - **写法上都需要使用驼峰标识**
+  - **某些样式无法编写（伪类/伪元素）**
+  - **大量的样式，代码混乱**
+
+```jsx
+class App extends React.PureComponent {
+      render() {
+        return (
+          <div>
+            <a href="#" style={{fontSize: "50px", color: 'red'}}>百度一下</a>
           </div>
-      )
-  })
-  class App extends PureComponent {
-        constructor() {
-          super()
-          this.hRef = createRef()
-        }
-        render() {
-          return (
-            <div>
-  			<Home ref={this.hRef}/>
-              <button onClick={e => this.getDOM()}>获取函数组件内部DOM</button>
-            </div>
-          )
-        }
-        getDOM() {
-          console.log(this.hRef.current)
-        }
+        )
+      }
+    }
+```
+
+
+
+
+
+### .css文件
+
+- **优点：编写方式和普通的网页开发中的编写方式一致**
+
+- ** 缺点：普通的css属于全局的css，样式之间会相互影响，会相互层叠掉**
+
+
+
+
+
+### css modules
+
+- css modules在类似webpack配置的环境下都可以使用，React脚手架已经内置css modules的配置
+
+- **需要将css文件后缀`.css`改为`.module.css`**
+
+- **优点：解决了样式层叠的问题，css有局部作用域**
+
+- 【**不要使用元素选择器，会影响全局**】
+
+- 缺点：
+
+  - 编写css时类名不能使用连接符（.home-title）
+  - 不方便动态修改样式
+
+  ```js
+  .title {
+  }
+  
+  .content {
+  }
+  
+  // 全局样式
+  :global(.test) {
   }
   ```
+
+  ```js
+  import appStyle from './App.module.css'
   
-- **方式三：ref绑定一个回调函数，元素在被渲染之后，回调函数会被执行，其参数是元素**
-
-```jsx
-<script type="text/babel">
-    class App extends PureComponent {
-      constructor() {
-        super()
-        this.titleRef = createRef()
-        this.titleEl = null
-      }
+  class App extends PureComponent {
       render() {
-        return (
-          <div>
-            {/*字符串*/}
-            <h2 ref='refStr'>Hello React</h2>
-            
-            {/*创建ref对象*/}
-            <h2 ref={this.titleRef}>Hello React</h2>
-
-            {/*回调函数*/}
-            <h2 ref={el => this.titleEl = el}>Hello React</h2>
-
-            <button onClick={e => this.getNativeDOM()}>获取DOM</button>
-          </div>
-        )
+          return (
+              <div>
+              	<h2 className = {appStyle.title}>标题</h2>
+              	<p> className = {appStyle.content}>内容</p>
+              	<p> className = 'test'>测试一下全局样式</p>
+              </div>
+          )
       }
-      getNativeDOM() {
-        //使用方式一：字符串
-        console.log(this.refs.refStr)
-          
-        //使用方式二：创建ref对象
-        console.log(this.titleRef.current)
-          
-        //使用方式三：回调函数
-        console.log(this.titleEl)
-      }
-    }
-</script>
-```
+  }
+  ```
 
 
 
 
 
-# 表单元素
+### CSS in JS
 
-### 受控组件
+- **通过js为css赋予一些能力，包括样式嵌套、动态修改样式、逻辑复用等**
+- **目前比较流行的CSS in JS库：styled-components、emotion**
 
-- **在html中，表单元素自己维护state，并根据用户输入进行更新**
+#### styled-components
 
-- **在React中，状态要保存在组件的state属性中，并且要通过setState()来更新**
+- **本质是通过模板字符串执行函数，创建出一个【样式组件】。这个组件会被自动添加上一个不重复的 class**
+- 样式组件支持对应html标签的所有属性
+- 在使用样式组件时，可以传入**as属性**，允许更改组件的底层html标签
+  - 例如：将一个styled.div渲染成button、a或其它标签
 
-- **①在input上设置value属性，表单显示的值将始终为this.state.value，这使得React的state成为唯一数据源**
+- **样式组件可以通过`${props => ... }`动态设置样式**
 
-  **②监听input的change事件在每次按键时都会改变React的state，显示的值将随用户输入而更新**
-
-  **被React以这种方式控制取值的表单输入元素叫做【受控组件】**
-
-```jsx
-class App extends PureComponent {
-      constructor() {
-        super()
-        this.state = {
-          username: ''
-        }
-      }
-      render() {
-        const {username} = this.state
-        return (
-          <div>
-                <input type="text" 
-                       value={username}
-                       onChange={e => this.inputChange(e)}/>
-          </div>
-        )
-      }
-      inputChange(event) {
-        this.setState({
-          username: event.target.value
-        })
-      }
-		// 当多个受控组件由同一个函数处理时
-		inputChange(event) {
-            this.setState({
-              [event.target.name]: event.target.value
-            })
-          }
-    }
-```
-
-
-
-### 非受控组件
-
-- 使用ref从dom节点中获取表单数据
-- 需要通过defaultValue来设置默认值
-
-```jsx
-<input type='text' defaultValue={intro} ref={this.introRef}/>
-// 监听改变
-componentDidMount() {
-    this.introRef.current.addEventListener('change', () => {})
+```js
+import styled from 'styled-components'
+const H1 = styled.h1`
+	font-size: 16px;
+	color: green;
+	background-color: yellow;
+`
+const Input = styled.input`
+	border: none;
+	padding: 5px;
+	border-radius: 5px
+`
+function Test() {
+  return (
+  	<H1>这是一段文本</H1>
+    <Input type='number' placeholder='占 a位文本'/>
+  )
 }
 ```
+
+- 样式嵌套：支持类似于css预处理器的样式嵌套；可以通过&符号获取当前元素
+
+```jsx
+import styled from 'styled-components'
+
+const AppWrapper = styled.div`
+  font-size: 30px;
+  color: orange;
+  .content {
+    background-color: blue;
+    span {
+      &.active {
+        color: red;
+      }
+      //伪类  
+      &:hover {
+        color: green
+      }
+    }
+  }
+`
+export default memo(function() {
+  return (
+    <AppWrapper>
+      <p>我是标题</p>
+      <div className='content'>
+        <span>内容1</span>
+        <span className='active'>内容2</span>
+      </div>
+    </AppWrapper>
+  )
+})
+```
+
+- **继承**
+
+```js
+const HYButton = styled.button`
+	border: 1px solid yellow;
+	border-radius: 5px
+`
+const HYButtonWrapper = styled(HYButton)`
+	color: green;
+	background-color: red;
+`
+```
+
+- 全局样式
+
+```js
+import { createGlobalStyle } from 'styled-components'
+const GlobalStyles = createGlobalStyle`
+	a {
+		text-decoration: none
+	}
+	...
+`
+
+// GlobalStyles 不接受任何子组件，是一个自闭合组件
+function App() {
+  return (
+  	<>
+    	<GlobalStyles/>
+    	... 
+    </>
+  )
+}
+```
+
+
+
+
 
 
 
@@ -2924,584 +3630,88 @@ class App extends PureComponent {
 
 
 
-# Fragment
-
-- **语法糖：<> </>，相当于<Fragment></Fragment>**
-- **注意：如果需要在Fragment标签上添加属性，那么不能使用【短语法】**
-
-
-
-# portals
-
-- **某些情况下，我们希望渲染的内容独立于当前挂载的DOM元素中（默认都是挂载在id为root的元素上）**
-
-```js
-ReactDOM.createPortal(<h2>内容</h2>, document.querySelector('#why'))
-```
 
 
 
 
 
-# CSS样式
 
-### 内联样式
+# ref 
 
-- 优点：
-  - **样式之间不会有冲突**
-  - **可以动态获取当前state中的状态**
-- 缺点：
-  - **写法上都需要使用驼峰标识**
-  -   **某些样式无法编写（伪类/伪元素）**
-  -  **大量的样式，代码混乱**
+- **方式一【弃用】：在html元素上绑定ref字符串**
+
+- **方式二【推荐】：通过`createRef()`创建ref对象，绑定到元素上**
+
+  - **ref属性用于html元素时，其current属性是dom元素**
+  - **ref属性用于class组件时，其current属性是类组件的实例对象**
+  - **ref不可用于函数组件上，因为它没有实例，可以通过forwardRef进行ref传递，传给内部dom**
+
+  ```jsx
+  import { forwardRef } from 'react'
+  const Home = forwardRef(function(props, ref) {
+      return (
+      	<div>
+          	<h2 ref={ref}>Home</h2>
+          </div>
+      )
+  })
+  class App extends PureComponent {
+        constructor() {
+          super()
+          this.hRef = createRef()
+        }
+        render() {
+          return (
+            <div>
+  			<Home ref={this.hRef}/>
+              <button onClick={e => this.getDOM()}>获取函数组件内部DOM</button>
+            </div>
+          )
+        }
+        getDOM() {
+          console.log(this.hRef.current)
+        }
+  }
+  ```
+
+- **方式三：ref绑定一个回调函数，元素在被渲染之后，回调函数会被执行，其参数是元素**
 
 ```jsx
-class App extends React.PureComponent {
+<script type="text/babel">
+    class App extends PureComponent {
+      constructor() {
+        super()
+        this.titleRef = createRef()
+        this.titleEl = null
+      }
       render() {
         return (
           <div>
-            <a href="#" style={{fontSize: "50px", color: 'red'}}>百度一下</a>
+            {/*字符串*/}
+            <h2 ref='refStr'>Hello React</h2>
+            
+            {/*创建ref对象*/}
+            <h2 ref={this.titleRef}>Hello React</h2>
+
+            {/*回调函数*/}
+            <h2 ref={el => this.titleEl = el}>Hello React</h2>
+
+            <button onClick={e => this.getNativeDOM()}>获取DOM</button>
           </div>
         )
       }
-    }
-```
-
-
-
-
-
-### .css文件
-
-- **优点：编写方式和普通的网页开发中的编写方式一致**
-
-- ** 缺点：普通的css属于全局的css，样式之间会相互影响，会相互层叠掉**
-
-
-
-
-
-### css modules
-
-- css modules在类似webpack配置的环境下都可以使用，React脚手架已经内置css modules的配置
-
-- **需要将css文件后缀`.css`改为`.module.css`**
-
-- **优点：解决了样式层叠的问题，css有局部作用域**
-
-- 【**不要使用元素选择器，会影响全局**】
-
-- 缺点：
-
-  - 编写css时类名不能使用连接符（.home-title）
-  - 不方便动态修改样式
-  
-  ```js
-  .title {
-  }
-  
-  .content {
-  }
-  
-  // 全局样式
-  :global(.test) {
-  }
-  ```
-  
-  ```js
-  import appStyle from './App.module.css'
-  
-  class App extends PureComponent {
-      render() {
-          return (
-              <div>
-              	<h2 className = {appStyle.title}>标题</h2>
-              	<p> className = {appStyle.content}>内容</p>
-              	<p> className = 'test'>测试一下全局样式</p>
-              </div>
-          )
-      }
-  }
-  ```
-
-
-
-
-
-### CSS in JS
-
-- **通过js为css赋予一些能力，包括样式嵌套、动态修改样式、逻辑复用等**
-- **目前比较流行的CSS in JS库：styled-components、emotion**
-
-#### styled-components
-
-- **本质是通过模板字符串执行函数，创建出一个【样式组件】。这个组件会被自动添加上一个不重复的 class**
-- **【样式嵌套】：支持类似于css预处理器的样式嵌套；可以通过&符号获取当前元素**
-
-```jsx
-import styled from 'styled-components'
-
-const AppWrapper = styled.div`
-  font-size: 30px;
-  color: orange;
-  .content {
-    background-color: blue;
-    span {
-      &.active {
-        color: red;
-      }
-      //伪类  
-      &:hover {
-        color: green
+      getNativeDOM() {
+        //使用方式一：字符串
+        console.log(this.refs.refStr)
+          
+        //使用方式二：创建ref对象
+        console.log(this.titleRef.current)
+          
+        //使用方式三：回调函数
+        console.log(this.titleEl)
       }
     }
-  }
-`
-export default memo(function() {
-  return (
-    <AppWrapper>
-      <p>我是标题</p>
-      <div className='content'>
-        <span>内容1</span>
-        <span className='active'>内容2</span>
-      </div>
-    </AppWrapper>
-  )
-})
-```
-
-- **【动态样式】：通过给样式组件传props，实现根据state动态修改样式**
-  - 获取props可以通过**${}传入一个函数**，props会作为该函数的参数
-
-```jsx
-  import styled from 'styled-components'   
-
-  const InputWrapper = styled.input`
-    background-color: lightblue;
-    color: ${props => props.color}
-  `
-  class App extends PureComponent {
-    constructor() {
-      super()
-      this.state = {
-        color: 'yellow'
-      }
-    }
-    render() {
-      return (
-        <div>
-          <InputWrapper type='text' color={this.state.color}/>
-        </div> 
-      )
-    }
-  }
-```
-
-- **【继承】**
-
-```js
-const HYButton = styled.button`
-	border: 1px solid yellow;
-	border-radius: 5px
-`
-const HYButtonWrapper = styled(HYButton)`
-	color: green;
-	background-color: red;
-`
-```
-
-
-
-
-
-
-
-# redux
-
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250415100414469.png" alt="image-20250415100414469" style="zoom:35%;" />
-
-- react在视图层帮助我们解决了DOM的渲染过程，但是state依然是留给我们自己来管理
-
-- 可以是组件定义自己的state，可以是组件之间通过props来通信，或是通过context进行数据间的共享
-
-- 当项目变得很庞大时，状态变得多且复杂，这时就可以使用redux
-
-  redux是一个帮助我们管理state的容器，是JavaScript的状态容器，提供了可预测的状态管理
-
-- ** ①单一数据源：通常只创建一个store，让整个应用程序的state变得方便维护、追踪、修改**
-
-- **②state是只读的：唯一修改state的方式就是派发action**
-
-- **③使用纯函数来进行修改：通过reducer将旧state和action联系在一起，返回一个新的state**
-
- 
-
-### 核心概念
-
-#### ① store
-
-- createStore()
-
-#### ② action
-
-- **action是一个js对象，用于描述更新的type和content**
-- **所有数据的变化，必须通过派发（dispatch）action来更新**
-
-```js
-const action = {type: 'ADD_FRIEND', info: {name: 'why', age: 18}}
-const action = {type: 'CHANGE_NAME', payload: {index: 0, newName: 'kobe'}}
-```
-
-#### ③ reducer
-
-- **reducer是一个纯函数， 不能产生副作用**
-- **reducer的作用是根据当前的state和action结合起来生成一个新的state**
-
-
-
-### 基本使用
-
-- **定义初始状态--》dispatch actions --》 reducer处理 --》 改变store的state**
-
-```js
-const { createStore } = require('redux')
-
-// 初始状态
-const defaultState = {
-  counter: 0
-} 
-
-//3、reducer: state和action的桥梁【必须是纯函数】
-function reducer(state = defaultState, action) {
-  switch(action.type) {
-    case 'INCREMENT':
-      return {...state, counter: state.counter + 1}
-    case 'DECREMENT':
-      return {...state, counter: state.counter - 1}
-    default:
-      return state
-  }
-}
-
-//1、创建store，将reducer 函数传入
-const store = createStore(reducer)
-
-//2、派发action
-store.dispatch({type: 'INCREMENT'})
-store.dispatch({type: 'DECREMENT'})
-
-//4、订阅state的修改
-store.subscribe(() => {
-  console.log("订阅数据的变化"  + store.getState())
-})
-```
-
-
-
-
-
-### 文件划分
-
-- **定义的所有actionCreators函数**
-- **actionCreators和reducer函数中的type常量是一致的**
-- **将reducer函数放到独立的reducer.js中**
-- **将创建store的过程放在index.js中**
-
-##### index.js
-
-```js
-import { createStore } from 'redux'
-import { combineReducers } from 'react'
-import reducer from './reducer'
-
-const store = createStore(reducer)
-
-export default store
-
-// 当有多个reducer时
-const rootReducer = combineReducers({
-    counterInfo: counterReducer,
-    homeInfo: homeReducer
-})
-const store = createStore(rootReducer)
-```
-
-
-
-##### reducer.js
-
-```js
-export const ADD_NUMBER = 'ADD_NUMBER'
-export const SUB_NUMBER = 'SUB_NUMBER'
-
-const defaultState = {
-  counter: 100
-}
-
-export default function reducer(state = defaultState, action) {
-  switch(action.type) {
-    case ADD_NUMBER:
-      return {...state, counter: state.counter + action.num}
-    case SUB_NUMBER:
-      return {...state, counter: state.counter - action.num}
-    default: 
-      return state
-  }
-}
-
-export const add_action = (num) => ({
-  type: ADD_NUMBER,
-  num
-})
-
-export const sub_action = (num) => ({
-  type: SUB_NUMBER,
-  num
-})
-```
-
-
-
-
-
-
-
-### react-redux
-
-- **Provider组件**
-
-```jsx
-//index.js
-import { Provider } from 'react-redux'
-import store from './store'
-const root = ReactDOM.createRoot(document.querySelector("#root"))
-root.render(
-    <Provider store={store}>
-    	<App/>
-    </Provider>
-)
-```
-
-- **useSelector()：返回store中某一reducer的数据**
-  - 参数一：函数
-  - 参数二：可以进行比较来决定组件是否重新渲染（引入shallowEqual函数）
-- **useDispatch()：返回dispatch函数**
-
-```jsx
-const App = memo((props) => {
-    const { count } = useSelector((store) => store.counteInfo , shallowEqual)
-    const dispatch = useDispatch()
-    function addNumberHandle(num, isAdd = true) {
-        if(isAdd) {
-            dispatch(addNumberAction(num))
-        } else {
-            dispatch(subNumberAction(num))
-        }
-    }
-    return (
-    	<div>
-            <h2>当前计数：{count}</h2>
-            <button onClick={e => addNumberHandle(5)}>+5</button>
-            <button onClick={e => addNumberHandle(8, false)}>-8</button>
-        </div>
-    )
-})
-export default App
-```
-
-
-
-- 之前用法
-  - **connect(mapStateToProps,  mapDispatchToProps)(Cpn)**
-  - `mapStateToProps`函数是将store的state映射到组件的props中
-  - `mapDispatchToProps`函数是将store的派发事件映射到组件的props中
-
-```js
-//page.js
-import { connect } from 'react-redux'
-class Page extends PureComponent {
-    calcNum(num, idAdd) {
-        if(isAdd) {
-            this.props.addNumber(1)
-        } else {
-            this.props.subNumber(1)
-        }
-    }
-    render() {
-        const { counter } = this.props
-        return (
-          <>
-            <div>{counter}</div>
-            <button onClick={e => this.calcNum(1, true)}>+1</button>
-						<button onClick={e => this.calcNum(1, false)}>-1</button>
-					</>
-        )
-    }
-}
-const mapStateToProps = state => ({
-    counter: state.counter
-}) 
-const mapDispatchToProps = dispatch => ({
-    addNumber: num => dispatch(addNumberAction(num)),
-    subNumber: num => dispatch(subNumberAction(num))
-})
-export default connect(mapStateToProps, mapDispatchToProps)(Page)
-```
-
-
-
-
-
-
-
-### redux-thunk
-
-- 异步操作比如发送网络请求的逻辑 ① 放在组件中不合适 ② reducer函数必须是纯函数，也不合适，所以需要**「中间件」**
-
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250415150307760.png" alt="image-20250415150307760" style="zoom:40%;" />
-
-- **在组件内dispatch的不再是一个action对象，而是一个函数，函数内进行真正的dispatch action，网络请求代码放在actionCreators文件中**
-- redux-thunk可以让dispatch，action函数调用
-  - dispatch：用于之后再次派发action
-  - getState：可以获取store中的state
-
-```jsx
-// index.js
-import { createStore, applyMiddleware } from 'redux'
-import thunk from 'redux-thunk'
-
-const store = createStore(reducer, applyMiddleware(thunk))
-```
-
-```js
-// actionCreators.js
-export function deposit(amount, currency) {
-  if(currency === 'USD') return { type: 'account/deposit', payload: amount}
-  
-  return async function(dispatch, getState) {
-    const res = await fetch('xxx')
-    const data = await res.json()
-    const converted = data.rates.USD
-    dispatch({ type: 'account/deposit', payload: converted })  
-  }
-}
-```
-
-```js
-// Page.jsx
-function Page() {
-  const dispatch = useDispatch()
-  useEffect(() => {dispatch(deposit(100, 'Euro'))}, [])
-   return  (
-        return <h2>Page</h2>
-    )
-}
-```
-
-
-
-
-
-
-
-# React ToolKit
-
-- **对redux做了一层封装**
-- 组件使用侧没有变化
-
-
-
-### configureStore
-
-- **用于创建store对象**
-- RTK默认对 中间件 和 Redux-devTools 进行了设置
-
-```js
-import { configureStore } from '@reduxjs/toolkit'
-
-const store = configureStore({
-    reducer: {
-        counter: counterReducer,
-        home: homeReducer
-    }
-})
-export default store
-```
-
-
-
-
-
-### createSlice
-
-- 创建一个slice，传入一个对象
-  - name属性：用于标记slice
-  - initialState：初始化值
-  - reducers：是一个对象，包括多个函数，一个函数类似于之前的一个case语句
-
-- 返回值是一个对象
-- 优点 
-  - **RTK会默认创建actionCreators**
-  - **在reducers对象的函数中可以直接对state做修改，RTK底层使用了immer库来保证数据的不可变性**
-    - 利用算法：Persistent Data Structure【持久化数据结构】
-      - 用一种数据结构来保存数据
-      - 当数据被修改时，会返回一个对象，但是新的对象会尽可能利用之前的数据结构，节约内存
-
-
-```js
-import { createSlice } from '@reduxjs/toolkit'
-
-const counterSlice = createSlice({
-    name: 'counter',
-    initialState: {
-        counter: 888
-    },
-    reducers: {
-        addNumber(state, action) {
-            state.counter += action.payload
-        },
-        subNumber(state, action) {
-            state.counter -= action.payload
-        }
-    }
-})
-// 导出RTK默认创建的 actionCreators
-export const { addNumber, subNumber } = counterSlice.actions
-// 导出reducer
-export default counterSlice.reducer
-```
-
-
-
-
-
-### 异步请求数据
-
-- createAsyncThunk：接受一个动作类型字符串和一个返回承诺的函数，并生成一个pending/fulfilled/rejected基于该承诺分派动作类型的thunk
-
-```jsx
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-export const fetchHomeDataAction = createAsyncThunk('fetch/homedata', async () => {
-    const res = await axios.get('xxx')
-    // 返回结果，action状态变为fulfilled
-    return res.data
-})
-const homeSlice = createSlice({
-    name: 'home',
-    initialState: {
-        banners: [],
-        recommends: []
-    },
-    extraReducers: {
-        [fetchHomeDataAction.pending](state, { payload }) {},
-       	[fetchHomeDataAction.fulfilled](state, { payload }) {
-            state.banners = payload.data.banner.list
-            state.recommends = payload.data.recommend.list
-        },
-        [fetchHomeDataAction.rejected](state, { payload }) {}
-    }
-})
-export default homeSlice.reducer
+</script>
 ```
 
 
