@@ -115,11 +115,97 @@ image.onload = function() {
 
 
 
+### 实现涂鸦效果
+
+```js
+let painting = false // 标记是否在绘制
+let startPoint = {x: undefined, y: undefined}
+
+const canvas = document.getElementById('canvas')
+const ctx = canvas.getContext('2d')
+
+// 按下时记录初始位置
+ctx.onmousedown = (e) => {
+  const {offsetX, offsetY} = e
+  startPoint.x = offsetX
+  startPoint.y = offsetY
+  painting = true
+}
+
+// 移动时绘制
+ctx.onmousemove = (e) => {
+  const {offsetX, offsetY} = e
+  const newPoint = {x: offsetX, y: offsetY}
+  if(painting) {
+    drawLine(startPoint.x, startPoint.y, newPoint.x, newPoint.y)
+    startPoint = newPoint
+  }
+}
+
+// 抬起时将painting置为false
+ctx.onmouseup = () => {
+  painting = false
+}
+
+function drawLine(startX, startY, endX, endY) {
+  ctx.beginPath()
+  ctx.lineWidth = 3  // 设置线宽度
+  ctx.moveTo(startX, startY)
+  ctx.lineTo(endX, endY)
+  ctx.stroke()
+  ctx.closePath()
+}
+```
 
 
-# Svg
 
-### 实现波浪线
+
+
+### 实现时钟
+
+```js
+function animate(time) {
+  // 获取当前时间及时分秒
+  const now = new Date()
+  const sec = now.getSeconds()
+  const min = now.getMinutes()
+  let hour = now.getHours()
+  hour = hour >= 12 ? hour - 12 : hour
+  
+  const ctx = document.getElementById('canvas').getContext('2d')
+  ctx.save()
+  ctx.clearRect(0, 0, 600, 600)
+  ctx.translate(300, 300)  // 移动坐标轴中心
+  ctx.rotate(-Math.PI / 2)  // 坐标轴逆时针旋转90°
+  
+  ctx.strokeStyle = 'black'
+  ctx.lineWidth = 5
+	ctx.save()
+  // 绘制小时的刻度
+  for(let i=0; i<12; i++) {
+    ctx.beginPath()
+    ctx.rotate(Math.PI / 6)
+    ctx.moveTo(100, 0)
+		ctx.lineTo(120, 0)
+    ctx.stroke()
+  }
+  ctx.restore()
+  ctx.save()
+  // 绘制分钟的刻度
+  ctx.lineWidth = 3
+  for(let i=0; i<60; i++) {
+    ctx.beginPath()
+    ctx.rotate(Math.PI / 30)
+    ctx.moveTo(110, 0)
+    ctx.lineTo(120, 0)
+    ctx.stroke()
+  }
+  ctx.restore()
+  ctx.restore()
+  window.requestAnimationFrame(animate)
+}
+window.requestAnimationFrame(animate)
+```
 
 
 
