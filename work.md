@@ -1682,10 +1682,11 @@ div:nth-child(5n) {
   margin-right: 0
 }
 
-// 场景：一行5个div，最后一行不想要margin-bottom
+// 场景：一行5个div，最后一行不想要margin-bottom，
 div:nth-last-child(-n + 5) {
   margin-bottom: 0
 }
+// 注意：如果使用flex布局会利用i标签，假如有2个i标签，由于i也是父元素的子元素，需要把i标签的个数也算进去, 变成了 -n + 7
 
 // 场景：除了最后一个div，其它div都加上margin-bottom
 div:not(:last-child) {
