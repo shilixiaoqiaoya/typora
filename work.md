@@ -1504,6 +1504,7 @@ width: fit-content
 
 // 圆形
 border-radius: 50%
+rounded-full     // 用于img标签上
   
 // 元素不响应点击事件
 pointer-events: none
