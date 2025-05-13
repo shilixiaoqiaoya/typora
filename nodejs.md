@@ -135,6 +135,24 @@ const server = http.createServer((req, res) => {
 
 
 
+- 对无效路由的处理
+
+```js
+...    // 有效路由相关处理
+
+app.all('*', (req, res, next) => {
+  res.status(404).json({
+    status: 'fail',
+    message: 'can not find this url'
+  })
+  next()
+})
+```
+
+
+
+
+
 
 
 #### events模块
@@ -416,6 +434,194 @@ arg2 就是 --import
 
 
 
+#### 错误处理
+
+- 有两大类错误：操作错误和程序错误
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250512163844282.png" alt="image-20250512163844282" style="zoom:43%;" />
+
+##### 1、全局错误处理中间件
+
+```js
+// 捕获错误
+app.use((err, req, res, next) => {
+  err.statusCode = err.statusCode || 500
+  err.status = err.status || 'error'
+  
+  res.status(err.statusCode).json({
+    status: err.status,
+    message: err.messagae
+  })
+})
+```
+
+```js
+// 举例：访问无效路由
+app.all('*', (req, res, next) => {
+  const err = new Error('can not find this url')
+  err.statusCode = 404
+  err.status = 'fail'
+  
+  next(err)    // 触发错误处理流程
+}
+```
+
+
+
+- AppError类，对Error类二次包装
+
+```js
+class AppError extends Error {
+  constructor(message, statusCode) {
+    super(message)
+    this.statusCode = statusCode
+    this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error'
+    this.isOperational = true   // 代表操作错误
+  }
+}
+module.exports = AppError
+
+// 使用
+next(new AppError('can not find this url', 404 ))
+```
+
+
+
+- 区分环境
+
+```js
+const sendErrorDev = (err, res) => {
+  res.status(err.statusCode).json({
+    status: err.status,
+    error: err,
+    message: err.messagae,
+    stack: err.stack
+  })
+}
+const sendErrorProd = (err, res) => {
+  // 判断是操作错误
+  if(err.isOperational) {
+    res.status(err.statusCode).json({
+      status: err.status,
+      message: err.messagae,
+    })
+  } else {
+    // 逻辑错误
+    res.status(500).json({
+      status: 'error',
+      message: 'something went wrong'
+    })
+  }
+  
+}
+module.exports = (err, req, res, next) => {
+  err.statusCode = err.statusCode || 500
+  err.status = err.status || 'error'
+  
+  if(process.env.NODE_ENV === 'development') {
+    sendErrorDev(err, res)
+  } else if(process.env.NODE_ENV === 'production') {
+    sendErrorProd(err, res)
+  }
+}
+```
+
+
+
+
+
+
+
+
+
+##### 2、捕获异步函数错误
+
+```js
+// 捕获异步错误
+const catchAsync = fn => { 
+  return (req, res, next) => {
+    fn(req, res, next).catch(err => next(err))
+  } 
+}
+```
+
+```js
+// 举例：创建tour
+	// 重构之前
+exports.createTour = async (req, res, next) => {
+  try {
+    const newTour = await Tour.create(req.body)
+    res.status(201).json({
+      status: 'success',
+      data: {
+        tour: newTour
+      }
+    })
+  } catch(err) {
+    res.status(400).json({
+      status: 'fail',
+      message: err
+    })
+  }
+}
+
+	// 重构之后
+exports.createTour = catchAsync(async (req, res, next) => {
+  const newTour = await Tour.create(req.body)
+  res.status(201).json({
+    status: 'success',
+    data: {
+      tour: newTour
+    }
+  })
+})
+```
+
+
+
+
+
+##### 3、处理404错误
+
+```js
+exports.getTour = catchAsync(async (req, res, next) => {
+  const tour = await Tour.findById(req.params.id)
+  
+  if(!tour) {
+    return next(new AppError('no tour find', 404))
+  }
+  
+  res.status(200).json({
+    status: 'success',
+    data: {
+      tour
+    }
+  })
+})
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # MongoDB
 
 - **【是非关系型数据库，属于文档型】**
@@ -428,7 +634,7 @@ arg2 就是 --import
 
 
 
-#### 常见命令
+### 常见命令
 
 - **mongo shell是命令行交互工具，通过它可以直接和mongodb数据库 ‘对话’**
 - GUI工具 —— compass
@@ -457,7 +663,7 @@ db.tours.find()
 
 
 
-#### 查询
+### 查询
 
 ```js
 // 查询name是xxx的文档
@@ -474,7 +680,7 @@ db.tours.find({ $or: [ {price: {$lte: 500}}, {rating: {$gte: 4.8}} ]})
 
 
 
-#### 更新
+### 更新
 
 ```js
 // 对name为xxx的文档，price改为597 
@@ -488,7 +694,7 @@ db.tours.updateMany({ name: 'xxx'}, { $set: {yyy: 'yyy'} })
 
 
 
-#### 删除
+### 删除
 
 ```js
 // 删除第一个name为xxx的文档
@@ -690,6 +896,8 @@ if(req.query.page){
 exports.updateTour = async (req, res) => {
   const tour = await Tour.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
 }
+
+//  runValidators设为true，表示在更新数据时也需要复合schema模式
 ```
 
 
@@ -706,7 +914,7 @@ exports.deleteTour = async (req, res) => {
 
 
 
-### 数据聚合
+#### 数据聚合
 
 - 聚合管道是mongodb强大的数据分析工具，允许对数据进行多阶段的转换和处理
 
@@ -744,6 +952,182 @@ exports.getTourStats = async (req, res) => {
   })
 }
 ```
+
+
+
+$unwind: 
+
+- 用于解构数组字段，将数组中的每个元素拆分为独立的文档
+
+```js
+{
+	$unwind: {
+    path: <arrayField>,   // 要解构的数组字段路径
+  }
+}
+
+// 举个例子
+	// 数据
+[
+  {_id: 1, product: 'A', tags: ['red', 'blue', 'green']},
+  {_id: 2, product: 'B', tags: []},
+  {_id: 3, product: 'C'},
+]
+db.products.aggregate([{ $unwind: '$tags' }])
+	// 结果
+{_id: 1, product: 'A', tags: 'red'}
+{_id: 1, product: 'A', tags: 'blue'}
+{_id: 1, product: 'A', tags: 'green'}
+```
+
+
+
+
+
+#### 虚拟属性
+
+- **虚拟属性允许在不实际存储到数据库的情况下，定义文档的‘计算属性’或‘派生属性’，它是由文档其它字段计算得出**
+- 注意：数据查询时是不能利用虚拟属性的，因为它不存在于数据库中 
+
+```js
+const userSchema = mongoose.Schema({
+  firstName: String,
+  lastName: String
+}, {
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+})
+userSchema.virtual('fullName').get(function() {
+  return `${this.firstName} ${this.lastName}`
+})
+```
+
+
+
+
+
+#### 中间件
+
+- 有四种中间件：文档、查询、聚合、模型
+- 在schema注册方法
+
+1、文档中间件
+
+```js
+	// 举例：在save()/create()之前执行某些逻辑
+tourSchema.pre('save', function(next) {			// next函数可以用来执行下一个中间件
+  console.log(this)    // this指向当前文档
+  next()
+})
+tourSchema.post('save', function(doc, next) => {
+	console.log(doc)   // doc是当前文档
+	next()
+})
+```
+
+2、查询中间件，允许在执行某个查询之前/之后运行函数
+
+```js
+// query middleware 举例：在所有find相关操作之前过滤掉私密tour
+tourSchema.pre(/^find/, function(next) {
+  console.log(this)  // this指向当前query
+  this.start = Date.now()
+  this.find({ secretTour: { $ne: true } })  
+  next()
+})
+
+// 举例：记录查询操作所耗时长
+tourSchema.post(/^find/, functon(docs, next) => {
+  console.log(Date.now() - this.start)
+  console.log(docs)
+  next()
+})
+```
+
+3、聚合中间件
+
+```js
+tourSchema.pre('aggregate', function(next) {
+  // 举例：聚合前将私密tour过滤掉
+  this.pipeline().unshift({ $match: {secretTour: {$ne: true}} })
+  console.log(this)  // this指向聚合对象  this.pipeline()
+  next()
+})
+```
+
+
+
+
+
+#### 数据验证
+
+- 默认情况下，更新操作不会触发模式验证，需要通过`runValidators: true`显示启用
+- 对于自定义验证器
+  - 新建时，函数中的this指向新建的文档
+  - 更新时，this不指向被更新的文档，需要额外处理（可以利用中间件）
+
+
+
+1、内置验证器
+
+```js
+// String
+name: {
+  type: String,
+  required: [true, 'A tour must have a name'],
+  maxLength: [40, '需要不超过40个字符'],
+  minLength: [10, '需要不低于10个字符']
+}
+difficulty: {
+  type: String,
+  enum: {
+    values: ['easy', 'medium', 'difficult'],
+    message: 'difficulty is either: easy/medium/difficult'
+  }
+}
+
+// Number
+rating: {
+  type: Number,
+  default: 4.5,
+  min: [1, '评分需不低于1'],
+  max: [5, '评分需不超过5'],
+}
+```
+
+2、自定义验证器
+
+- validate函数，返回true表示验证通过
+
+```js
+priceCount: {
+  type: Number,
+  validate: {
+    message: '折扣不得高于价格',
+    validator: function(val) {
+    	return val < this.price  
+  	}
+  } 
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
