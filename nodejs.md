@@ -89,9 +89,7 @@ process.env.UV_THREADPOOL_SIZE = 1
 - 两个特殊的阶段：NextTick()和微任务队列
   - 这两个队列中若有回调要执行，会直接在当前阶段后立即执行，不需要等四个阶段全部执行完
 
-
-
-
+- **node.js进程会在事件循环为空时自动退出，无需显式调用exit()**
 
 
 
@@ -423,10 +421,23 @@ arg2 就是 --import
 
 
 
-#### process.exit()
+#### process.exit([exitCode])
 
-- 强制终止nodejs进程
-- 不会等待未完成的异步操作
+- exitCode为0表示成功退出，非0表示异常退出
+
+![image-20250513112311490](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250513112311490.png)
+
+- 强制终止nodejs进程，不会等待未完成的异步操作
+- 通常是在server.close事件执行退出
+  - 否则正在处理的客户端请求会被强行中断，用户可能收到错误
+  - server.close()会停止接受新请求；等待已有请求完成
+
+
+```js
+server.close(() => {
+  process.exit(1)
+})
+```
 
 
 
@@ -444,7 +455,7 @@ arg2 就是 --import
 
 ```js
 // 捕获错误
-app.use((err, req, res, next) => {
+app.use((err, req, res, next)  => {
   err.statusCode = err.statusCode || 500
   err.status = err.status || 'error'
   
@@ -490,6 +501,7 @@ next(new AppError('can not find this url', 404 ))
 - 区分环境
 
 ```js
+// 【开发环境】
 const sendErrorDev = (err, res) => {
   res.status(err.statusCode).json({
     status: err.status,
@@ -498,6 +510,7 @@ const sendErrorDev = (err, res) => {
     stack: err.stack
   })
 }
+// 【生产环境】
 const sendErrorProd = (err, res) => {
   // 判断是操作错误
   if(err.isOperational) {
@@ -512,8 +525,8 @@ const sendErrorProd = (err, res) => {
       message: 'something went wrong'
     })
   }
-  
 }
+
 module.exports = (err, req, res, next) => {
   err.statusCode = err.statusCode || 500
   err.status = err.status || 'error'
@@ -521,14 +534,24 @@ module.exports = (err, req, res, next) => {
   if(process.env.NODE_ENV === 'development') {
     sendErrorDev(err, res)
   } else if(process.env.NODE_ENV === 'production') {
+    // 对mongoose的错误做处理，使之operational为true
+    if(err.name === 'CastError') err = handleCastErrorDB(err)
+    if(err.name === 'ValidationError') err = handleValidationError(err)
     sendErrorProd(err, res)
   }
 }
+
+const handleCastErrorDB = (err) => {
+  const message = `invalid ${err.path}: ${err.value}`
+  return new AppError(message, 400)
+}
+
+const handleValidationError = (err ) => {
+  const errors = Object.values(err.errors).map(el => el.message)
+  const message = `invalid input data, ${errors.join(',')}`
+  return new AppError(message, 400) 
+}
 ```
-
-
-
-
 
 
 
@@ -579,12 +602,10 @@ exports.createTour = catchAsync(async (req, res, next) => {
 
 
 
-
-
 ##### 3、处理404错误
 
 ```js
-exports.getTour = catchAsync(async (req, res, next) => {
+ exports.getTour = catchAsync(async (req, res, next) => {
   const tour = await Tour.findById(req.params.id)
   
   if(!tour) {
@@ -602,11 +623,35 @@ exports.getTour = catchAsync(async (req, res, next) => {
 
 
 
+##### 4、未处理的promise reject
+
+```js
+const server = app.listen(port, () => {
+  console.log('app running on port')
+})
+
+process.on('unhandledRejection', err => {
+  console.log(err.message)
+  server.close(() => {
+    process.exit(1)
+  })
+})
+```
 
 
 
 
 
+##### 5、同步代码报错
+
+- 为了使其生效，代码需要放在最前面
+
+```js
+process.on('uncaughtException', err => {
+    console.log(err.message)
+    process.exit(1)
+})
+```
 
 
 
@@ -738,7 +783,7 @@ const tourSchema = new mongoose.Schema({
   name: {
     type: String,
     required: [true, 'a tour must have a name'],
-    unique: true
+    unique: true   // name值不可以重复
   },
   rating: {
     type: Number,
@@ -817,7 +862,6 @@ exports.getAllTours = async (req, res) => {
 exports.getTour = async (req, res) => {
   const tour = await Tour.findById(req.params.id)
 }
-
 ```
 
 ##### 1、过滤
@@ -1061,7 +1105,26 @@ tourSchema.pre('aggregate', function(next) {
 
 #### 数据验证
 
-- 默认情况下，更新操作不会触发模式验证，需要通过`runValidators: true`显示启用
+- create() 和 save() 操作会触发所有模式级别的验证器，包括自定义验证器
+- **更新操作 updateOne() 等默认不会运行验证器**
+
+```js
+// 在更新操作中显式启用验证
+Model.updateOne({...}, {...}, { runValidators: true })
+
+// 在模式级别全局启用更新验证
+const schema = new mongoose.Schema({
+}, {
+  validateBeforeSave: true,  //默认就是true
+  validateBeforeUpdate: true  
+})
+
+// 使用中间件
+schema.pre(['updateOne'], fn)
+```
+
+
+
 - 对于自定义验证器
   - 新建时，函数中的this指向新建的文档
   - 更新时，this不指向被更新的文档，需要额外处理（可以利用中间件）
@@ -1103,13 +1166,209 @@ rating: {
 priceCount: {
   type: Number,
   validate: {
-    message: '折扣不得高于价格',
     validator: function(val) {
     	return val < this.price  
-  	}
+  	},
+    message: '折扣不得高于价格'
   } 
 }
 ```
+
+
+
+
+
+
+
+# 身份验证
+
+####  schema + model
+
+```js
+// userModel.js
+const momgoose = require('mongoose')
+const validator = require('validator')
+
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'please tell us your name']
+  },
+  email: {
+    type: String,
+    required: [true, 'please provide your email'],
+    unique: true,
+    lowercase: true,
+    validate: [validator.isEmail, 'please provide a valid email']
+  },
+  photo: String,
+  password: {
+    type: Sting,
+    required: [true, 'please provide a password'],
+    minlength: 8
+  }
+  passwordConfirm: {
+      type: Sting,
+      required: [true, 'please confirm your password'],
+  }
+})
+
+// model
+const User = mongoose.model('User', userSchema)
+```
+
+
+
+#### authController
+
+```js
+// authController.js
+exports.signup = catchAsync(async (req, res, next) => {
+  const newUser = await User.create(req.body)
+  res.status(201).json({
+    status: 'success',
+    data: {
+      user: newUser
+    }
+  })
+})
+
+router.post('/signup', authController.signup)
+```
+
+
+
+
+
+#### 密码
+
+```js
+// 验证密码和再次输入的密码一致
+passwordConfirm: {
+  type: String,
+  required: [true, 'please confirm your password'],
+  validate: {
+    validator: function(val) {
+      return val === this.password
+    },
+    message: 'passwordConfirm should equal password'
+  }
+}
+```
+
+
+
+- 密码不应该以普通格式存储在数据库中，需对密码进行加密
+- bcryptjs是一个纯js实现的bcrypt密码哈希库，用于安全地存储用户密码，适合Nodejs应用
+
+```js
+const bcrypt = require('bcryptjs')
+// 利用文档中间件
+userSchema.pre('save', async function(next) {
+  if(!this.isModified('password')) return next()
+  
+  this.password = await bcrypt.hash(this.password, 12)
+  // n 是指bcrypt哈希算法的成本因子，它决定了哈希计算的复杂度和安全性，数值越大(2^n)，计算时间越长，安全性越高, 推荐值12
+  
+  this.passwordConfirm = undefined  // 去除数据库中passwordConfirm字段
+  
+  next()
+})
+```
+
+
+
+
+
+##### 加盐算法
+
+- **在密码哈希过程中添加随机数据的技术，目的是使相同的密码产生不同的哈希值**
+- 目的：防止彩虹表攻击；避免相同代码相同哈希；增加破解难度
+
+```js
+// 1、系统生成随机盐值 2、将盐值+用户密码组合 3、对组合字符串进行哈希 3、存储盐值+哈希结果
+const salt = generateRandomSalt()
+const hashedPassword = hash(salt + '用户密码')
+```
+
+- 在登录时，从数据库取出该用户的盐值，将盐值+用户输入的密码组合，哈希后与存储的哈希结果比对
+
+
+
+
+
+#### Json Web Token
+
+##### 1、token使用流程
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250513183702860.png" alt="image-20250513183702860" style="zoom:40%;" />
+
+1、用户输入账号密码，如果账号密码有效，后端会生成token，将token发送到前端
+
+2、前端会将token存储到cookie或localstorage中
+
+3、每次发送请求会将token携带上，后端检验token有效则返回数据
+
+
+
+##### 2、token组成
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250513185057094.png" alt="image-20250513185057094" style="zoom:40%;" />
+
+- 标头 header
+- 负载 payload
+- 签名 signature
+  - 利用header + payload + secret 生成
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250513185944837.png" alt="image-20250513185944837" style="zoom:50%;" />
+
+```js
+const header = {
+  alg: 'HS256',
+  typ: 'JWT'
+}
+const payload = {
+  userId: '123',
+  username: 'example',
+  exp: Math.floor(Date.now()/1000)+(60*60) // 1小时后过期
+}
+const secret = 'secret-key'
+const token = base64(header) + '.' + base64(payload) + '.' + signature
+```
+
+
+
+
+
+
+
+
+
+
+
+##### 3、token验证
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250513190314999.png" alt="image-20250513190314999" style="zoom:50%;" />  
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
