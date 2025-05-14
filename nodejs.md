@@ -331,6 +331,8 @@ dotenv.config({ path: './config.env' })
 NODE_ENV=development
 USER=jonas
 PASSWORD=123456
+JWT_SECRET=my-ultra-secure-and-ultra-long-secret
+JWT_EXPIRES_IN=90d
 ```
 
 
@@ -658,6 +660,41 @@ process.on('uncaughtException', err => {
 
 
 
+
+#### promisify
+
+- Node内置的util模块提供了promisify方法
+
+```js
+const { promisify } = require('util')
+const fs = require('fs')
+
+// 回调风格的readFile
+fs.readFile('file.txt', 'utf-8', (err, data) => {
+})
+
+// 用promisify转换成promise风格
+const readFileProm = promisify(fs.readFile)
+readFileProm('file.txt', 'utf-8').then(data => {}).catch(err => {})
+```
+
+
+
+- 自定义promisify
+
+```js
+function myPromisify(fn) {
+  return function(...args) {
+    return new Promise((resolve, reject) => {
+      fn(...args, (err, data) => {
+        if(err) reject(err)
+        else resolve(data)
+      })
+    })
+  }
+}
+const readFileProm = myPromisify(fs.readFile)
+```
 
 
 
@@ -1194,6 +1231,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'please tell us your name']
   },
+  role: {
+    type: String,
+    enum: ['user', 'guide', 'lead-guide', 'admin'],
+    default: 'user'
+  },
   email: {
     type: String,
     required: [true, 'please provide your email'],
@@ -1205,35 +1247,18 @@ const userSchema = new mongoose.Schema({
   password: {
     type: Sting,
     required: [true, 'please provide a password'],
-    minlength: 8
+    minlength: 8,
+    selected: false  // 不会在接口中将该字段返回，避免泄露密码 
   }
   passwordConfirm: {
       type: Sting,
       required: [true, 'please confirm your password'],
-  }
+  },
+  passwordChangedAt: Date
 })
 
 // model
 const User = mongoose.model('User', userSchema)
-```
-
-
-
-#### authController
-
-```js
-// authController.js
-exports.signup = catchAsync(async (req, res, next) => {
-  const newUser = await User.create(req.body)
-  res.status(201).json({
-    status: 'success',
-    data: {
-      user: newUser
-    }
-  })
-})
-
-router.post('/signup', authController.signup)
 ```
 
 
@@ -1309,6 +1334,29 @@ const hashedPassword = hash(salt + '用户密码')
 
 3、每次发送请求会将token携带上，后端检验token有效则返回数据
 
+```js
+// 登录获得token
+const handleLogin = async () => {
+  const res = await fetch('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password })
+  })
+  const { token } = await response.json()
+  localStorage.setItem('authToken', token)  // 持久存储
+  sessionStorage.setItem('authToken', token)  // 会话存储
+  document.cookie = `authToken=${token}; Secure; HttpOnly; SameSite=Strict`
+}
+
+// 每次请求携带token
+fetch('/api/protected', {
+  headers: {
+    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+  }
+})
+```
+
+
+
 
 
 ##### 2、token组成
@@ -1340,22 +1388,134 @@ const token = base64(header) + '.' + base64(payload) + '.' + signature
 
 
 
-
-
-
-
-
-
 ##### 3、token验证
 
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250513190314999.png" alt="image-20250513190314999" style="zoom:50%;" />  
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250514113850125.png" alt="image-20250514113850125" style="zoom:50%;" />
 
+- 前端请求携带的token，会被后端解析，解析出header、payload、签名
 
+- 利用解析出的header、payload、结合服务端存储的secret生成签名
+
+- 将生成的签名与解析出的签名做比较，如果一样则token验证通过，否则验证不通过
 
  
 
 
 
+#### 注册
+
+```js
+const jwt = require('jsonwebtoken')
+// authController.js
+	// 注册后自动登录
+exports.signup = catchAsync(async (req, res, next) => {
+  const newUser = await User.create({
+    name: req.body.name,
+    email: req.body.email,
+    password: req.body.password,
+    passwordConfirm: req.body.passwordConfirm,
+  })
+  
+  const token = jwt.sign({ id: newUser._id }, process.env.JWT_TOKEN, {
+    expiresIn: process.env.JWT_EXPIRES_IN
+  })
+  
+  res.status(201).json({
+    status: 'success',
+    token,
+    data: {
+      user: newUser
+    }
+  })
+})
+
+router.post('/signup', authController.signup)
+```
+
+
+
+
+
+#### 登录
+
+```js
+// 在model中判断密码是否正确
+	// 在每个document上添加方法
+userSchema.methods.correctPassword = asycn function(candidatePassword, userPassword) {
+  return await bcrypt.compare(candidatePassword, userPassword)
+}
+
+exports.login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body
+  
+  // check email and password exist
+  if(!email || !password) {
+    return next(new AppError('please provide email and password', 400))
+  }
+  
+  // check email exist, password right
+  const user = await User.find({ email }).select('+password')
+  if(!user || (!await user.correctPassword(password, user.password))) {
+    return next(new AppError('incorrect email or password', 401))
+  }
+  
+  // sign token
+  const token = jwt.sign({ id: user._id }, process.env.JWT_TOKEN, {
+    expiresIn: process.env.JWT_EXPIRES_IN
+  })
+  res.status(200).json({
+    status: 'success',
+    token
+  })
+})
+```
+
+
+
+
+
+#### 访问被保护的请求
+
+```js
+// 利用路由中间件
+router.route('/').get(authController.protect, tourController.getAllTours)
+
+// authController.js
+const { promisify } = require('util')
+exports.protect = catchAsync(async function(req, res, next) {
+  // get token
+  let token = ''
+  if(req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.header.authorization.split(' ')[1]
+  }
+  if(!token) return next(new AppError('please log in to get access' 401))
+  
+  // verify token 
+  const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET)
+  console.log(decoded)  
+  	// token的payload数据 {id: 'xxx', iat: 1712345678, exp: 1712945678}  【iat是token签发时间, exp是过期时间】
+  
+  // again check user exist 用户被注销后token变无效
+  const currentUser = await User.findById(decoded.id)
+  if(!currentUser) return next(new AppError('the user not exist'))
+  
+  // check password not change 用户更改密码后token变无效
+  if(currentUser.changePasswordAfter(decoded.iat)) {
+    return next(new AppError('user changed password', 401))
+  }
+  
+  req.user = currentUser   // 将user放到req上, 方便下面授权获取 req.user.role
+  next() 
+}) 
+
+// 比较密码更改时间和token签发时间, 判断发了token后是否改密码
+userSchema.methods.changePasswordAfter = function(JWTtimestamp) {
+  if(this.passwordChangedAt) {
+    return this.passwordChangedAt > JWTtimestamp
+  }
+  return false
+}
+```
 
 
 
@@ -1363,14 +1523,36 @@ const token = base64(header) + '.' + base64(payload) + '.' + signature
 
 
 
+#### 授权
+
+- 仅有某些角色可以删除资源
+
+```js
+router.route('/:id').delete(authController.protect, authController.restrictTo('admin', 'lead-guide'), tourController.deleteTour)
+```
+
+```js
+exports.restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if(!roles.includes(req.user.role)) {
+      return next(new AppError('you do not have permission', 403))
+    }
+    
+    next()
+  }
+}
+```
 
 
 
 
 
+#### 重置密码
 
+  
 
-
+```js
+```
 
 
 
