@@ -1369,6 +1369,140 @@ as unknown as AxiosRequestHeaders 双重类型断言，绕过ts的类型检查�
 
 
 
+# socket
+
+`wss://connection.com`
+
+### 心跳机制
+
+- 保持网络连接活跃的通信技术，通过定期发送小型数据包（心跳包或ping-pong包）来确认连接的有效性
+- 客户端和服务端之间以固定时间间隔（如60s）交换heartbeat-ping和heartbeat-pong消息
+- **【检测连接存活状态**】
+  - 网络环境不稳定可能导致连接"假死"，定期心跳可快速发现断连状态
+- 【**防止连接自动关闭**】
+  - 防火墙会关闭长时间无活动的连接，60秒间隔的心跳可保持连接不被回收
+
+```js
+let heartbeatInterval
+
+function setupHeartBeat() {
+  heartbeatInterval = setInterval(() => {
+    if(socket.readyState === WebSocket.OPEN) {
+      socket.send({
+        command: 'heartbeat-ping'
+      })
+    }
+  })
+  
+  socket.addEventListener('message', (event) => {
+    if(event.data.command === 'heartbeat-pong') {
+      console.log('心跳响应正常')
+    }
+  })
+}
+```
+
+
+
+
+
+### 二次封装
+
+```js
+class SocketClient {
+  private socket: WebSocket | null
+	private isConnect    // 连接状态
+  private timeoutTimer: NodeJS.Timeout | null
+	private heartbeatTimer: NodeJS.Timeout | null
+	private isActivelyClose: boolean   // 是否主动关闭连接
+  private param
+  private timeout: number  // 连接断开几秒后尝试重连
+  
+  constructor(param, timeout) {
+    this.param = param
+    this.timeout = timeout
+    this.socket = null
+    this.isConnect = false
+    this.timeoutTimer = null
+    this.heartbeatTimer = null
+    this.isActivelyClose = false
+  }
+  
+	connect() {
+    const url = 'xxxx'
+    this.socket = new WebSocket(url)
+    this.init(this.param)
+  }
+  
+  init(param) {
+    // 监听关闭
+    this.socket.onclose = () => {
+      this.isConnect = false
+      if(!this.isActivelyClose) this.reconnectSocket()
+    }
+    
+    // 监听错误
+    this.socket.onerror = () => {
+      this.reconnectSocket()
+    }
+    
+    // 监听连接
+    this.socket.onopen = () => {
+      this.isConnect = true
+      this.heartbeat()
+    }
+    
+    // 监听消息
+    this.socket.onmessage = (e) => {
+      const data = JSON.parse(e.data)
+      if(data.command !== 'ACK' || data.command !== 'HEARTBEAT_PONG') {
+        param.callback(data)
+        this.sendAck()
+      }
+    }
+  }
+
+	// 【状态锁的实现，防止重连逻辑被频繁触发，同时确保在一次重连尝试结束后（无论是否成功），可以进行新的重连尝试】
+	reconnectSocket() {
+    if(this.isConnect) return 
+    this.isConnect = true  // 当短时间内重复触发重连，只有第一次真正执行
+    
+    clearInterval(this.timeoutTimer)
+    clearInterval(this.heartbeatTimer)
+    this.timeoutTimer = setTimeout(() => {
+      this.connect()
+      this.isConnect = false  // 保证重连失败后可以进行下一次重连尝试，如果重连成功会onopen事件中将其置为true
+    }, this.timeout)
+  }
+	
+	send(data) {
+    this.socket.send(JSON.stringify(data))
+  }
+
+	close() {
+    this.isActivelyClose = true
+    this.socket.close()
+    clearInterval(this.timeoutTimer)
+    clearInterval(this.heartbeatTimer)
+  }
+
+	heartbeat() {
+    heartbeatTimer = setInterval(() => {
+      this.send({
+        command: 'HEARTBEAT_PING'
+      })
+    }, 60 * 1000)
+  }
+
+	sendAck() {
+    this.send({
+      command: 'ACK'
+    })
+  }
+}
+
+```
+
 
 
 
