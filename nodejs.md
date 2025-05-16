@@ -256,7 +256,7 @@ app.use(function(req, res, next) => {
 // tourRoute.js
 const router = express.Router()
 
-router.route('/').get( ).post(createTour)
+router.route('/').get(getTours).post(createTour)
 router.route('/:id').get(getTour).patch(updateTour).delete(deleteTour)
 
 module.exports = router
@@ -333,6 +333,12 @@ USER=jonas
 PASSWORD=123456
 JWT_SECRET=my-ultra-secure-and-ultra-long-secret
 JWT_EXPIRES_IN=90d
+JWT_COOKIE_EXPIRES_IN=90
+
+EMAIL_USERNAME=...
+EMAIL_PASSWORD=...
+EMAIL_HOST=...
+EMAIL_PORT=...
 ```
 
 
@@ -695,6 +701,30 @@ function myPromisify(fn) {
 }
 const readFileProm = myPromisify(fs.readFile)
 ```
+
+
+
+
+
+
+
+#### express.json()
+
+- 内置中间件
+- 解析请求中content-type为application/json的请求体，将json字符串转为js对象，放于req.body上
+
+```js
+const express = require('express')
+const app = express()
+
+app.use(express.json())
+app.post('/api/data', (req, res) => {
+  console.log(req.body)
+  res.send('receive data')
+})
+```
+
+
 
 
 
@@ -1254,7 +1284,15 @@ const userSchema = new mongoose.Schema({
       type: Sting,
       required: [true, 'please confirm your password'],
   },
-  passwordChangedAt: Date
+  passwordChangedAt: Date,
+  passwordResetToken: String,
+  passwordResetExpires: Date,
+  // 用户是否注销状态
+  active: {
+    type: Boolean,
+    default: true,
+    selected: false
+  }
 })
 
 // model
@@ -1328,9 +1366,11 @@ const hashedPassword = hash(salt + '用户密码')
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250513183702860.png" alt="image-20250513183702860" style="zoom:40%;" />
 
+方案一
+
 1、用户输入账号密码，如果账号密码有效，后端会生成token，将token发送到前端
 
-2、前端会将token存储到cookie或localstorage中
+2、前端会将token存储到cookie，【避免将敏感token存储在localStorage中】
 
 3、每次发送请求会将token携带上，后端检验token有效则返回数据
 
@@ -1342,8 +1382,6 @@ const handleLogin = async () => {
     body: JSON.stringify({ username, password })
   })
   const { token } = await response.json()
-  localStorage.setItem('authToken', token)  // 持久存储
-  sessionStorage.setItem('authToken', token)  // 会话存储
   document.cookie = `authToken=${token}; Secure; HttpOnly; SameSite=Strict`
 }
 
@@ -1352,6 +1390,27 @@ fetch('/api/protected', {
   headers: {
     'Authorization': `Bearer ${localStorage.getItem('authToken')}`
   }
+})
+```
+
+
+
+方案二【推荐】
+
+- secure属性：使用https
+- Httponly属性：阻止javascript访问，仅限http传输【浏览器会自动在请求中包含，脚本无法触及】
+
+```js
+// 服务端以cookie返回token
+res.cookie('jwt', token, {
+  expires: new Date(Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000)
+  secure: true,
+  httpOnly: true
+})
+// 前端会自动在每次请求中携带http-only cookie,无需手动处理
+fetch('/api/protected', {
+  method: 'GET',
+  credentials: 'include'
 })
 ```
 
@@ -1416,7 +1475,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     passwordConfirm: req.body.passwordConfirm,
   })
   
-  const token = jwt.sign({ id: newUser._id }, process.env.JWT_TOKEN, {
+  const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN
   })
   
@@ -1460,7 +1519,7 @@ exports.login = catchAsync(async (req, res, next) => {
   }
   
   // sign token
-  const token = jwt.sign({ id: user._id }, process.env.JWT_TOKEN, {
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN
   })
   res.status(200).json({
@@ -1474,7 +1533,7 @@ exports.login = catchAsync(async (req, res, next) => {
 
 
 
-#### 访问被保护的请求
+#### 保护路由
 
 ```js
 // 利用路由中间件
@@ -1547,11 +1606,182 @@ exports.restrictTo = (...roles) => {
 
 
 
-#### 重置密码
+#### 忘记密码
 
-  
+- crypto是Node.js内置的加密模块，提供了各种加密功能
 
 ```js
+// 为每个文档添加 创建重置密码token 方法
+const crypto = require('crypto')
+UserSchema.methods.createPasswordResetToken = function() {
+  const resetToken = crypto.randomBytes(32).toString('hex')    // 生成resetToken
+  this.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex')   // 对其加密，存数据库
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000
+  return resetToken
+}
+
+exports.forgotPassword = catchAsync(async (req, res, next) => {
+	// get user base on a email
+  const user = await User.findOne({ email: req.body.email })
+  if(!user) return next(new AppError('no user base on the email', 404))
+  
+  // 生成resetToken
+  const resetToken = user.createPasswordResetToken()
+  await user.save()
+  		// save方法会将内存中的对象状态持久化到数据库，mongodb出于性能考虑，避免每次属性修改都触发数据库操作
+  
+  // send it to user's email
+  const resetURL = `${req.protocol}://${req.get('host')}/api/v1/users/resetPassord/${resetToken}`
+  const message = `please submit a patch request with new password and passwordConfirm to ${resetURL}`
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: 'password reset token (10 mins valid)',
+      message
+    })
+  } catch(err)  {
+    user.passwordResetToken = undefined
+    user.passwordResetExpires = undefined
+    await user.save()
+    return next(new AppError('sending email error', 500))
+  }
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'token sent to email'
+  })
+})
+
+router.post('/forgotPassword', authController.forgotPassword)
+```
+
+
+
+- 发邮件， NodeMailer
+
+```js
+const nodemailer = require('nodemailer')
+
+const sendEmail = async (options) => {
+  // create a transporter
+  const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: process.env.EMAIL_PORT,
+    auth: {
+      user: process.env.EMAIL_USERNAME,
+      pass: process.env.EMAIL_pASSWORD,
+    }
+  })
+  
+  // define email options
+  const mailOptions = {
+    from: 'Jonas <hello@jonas.io>',
+    to: options.email,
+    subject: options.subject,
+    text: options.message
+  }
+  
+  // send email
+  await transporter.sendMail(mailOptions)
+}
+
+module.exports = sendEmail
+```
+
+
+
+
+
+#### 重置密码
+
+```js
+const crypto = require('crypto')
+exports.reset = catchAsync(async (req, res, next) => {
+  // get user base on resetToken
+  const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex')
+  const user = await User.findOne({ passwordResetToken: hashedToken, passwordResetExpires: { $gt: Date.now() }})
+  if(!user) return next(new AppError('invalid token or token expire')) 
+  
+  // set password
+  user.password = req.body.password
+  user.passwordConfirm = req.body.passwordConfirm
+  user.passwordChangedAt = Date.now() - 1000
+  user.passwordResetToken = undefined
+  user.passwordResetExpires = undefined
+  await user.save()
+  
+  // log in, send jwt
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN
+  })
+  
+  res.status(200).json({
+    status: 'success',
+    token
+  })
+})
+
+router.patch('/resetPassword/:token', authController.resetPassword)
+```
+
+
+
+
+
+#### 更新密码
+
+```js
+exports.updatePassword = catchAsync(async (req, res, next) => {
+  // get user
+  const user = User.findById(req.user.id).select('+password')
+        
+ 	// check oldpasswod is valid
+  if(!(await user.correctPassword(req.body.passwordCurrent, user.password))) {
+  	return next(new AppError('your old password is wrong'), 401)
+  }
+        
+  // set password
+  user.password = req.body.password
+  user.passwordConfirm = req.body.passwordConfirm
+  user.passwordChangedAt = Date.now() - 1000
+  await user.save()
+        
+  // send jwt
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN
+  })
+  
+  res.status(200).json({
+    status: 'success',
+    token
+  })
+})
+
+router.patch('/updatePassword', authController.updatePassword)
+```
+
+
+
+ 
+
+#### 注销账号
+
+- 实际上将账户设置为非活动状态
+
+```js
+exports.deleteMe = catchAsync(async (req, res, next) => {
+  await User.findByIdAndUpdate(req.user.id, { active: false })
+  res.status(204).json({
+    status: 'success',
+    data: null
+  })
+})
+
+// 利用查询中间件，只返回active为true的
+userSchema.pre(/^find/, function(next) {
+  this.find({ active: { $ne: false } })
+  next()
+})
 ```
 
 
@@ -1560,6 +1790,89 @@ exports.restrictTo = (...roles) => {
 
 
 
+# 安全方面
+
+#### Httponly-cookie
+
+
+
+#### 速率限制
+
+-  全局中间件，统计某段时间内同一个ip的请求数量，当请求太多时阻止请求
+
+```js
+const rateLimit = require('express-rate-limit')
+
+const limiter = rateLimit({
+  max: 100,  // 每个ip最多100个请求
+  windowMs: 60 * 60 * 1000,  // 60min
+  message: '请求过于频繁，请稍后再试'
+})
+app.use('/api', limiter)  // 应用到以/api开头的路由
+
+// 响应header会添加上
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 99
+```
+
+
+
+
+
+#### helmet
+
+- 是一个express中间件集合，通过设置各种http头来增强web应用的安全性
+
+```js
+const helmet = require('helmet')
+
+// 使用所有默认的helmet中间件
+app.use(helmet())
+```
+
+
+
+
+
+#### 数据清理
+
+- 查询注入攻击
+  - 攻击者利用应用程序对用户输入处理不当的漏洞，将恶意代码注入到合法查询的攻击方式
+  - 比如NoSQL注入，针对mongodb等非关系型数据库
+
+- NoSQL注入示例
+
+```js
+// 正常查询
+db.users.find({ usename: req.body.username, password: req.body.password })
+
+// 恶意输入
+{
+  "username": { "$ne": '' },
+  "password": { "$ne": '' },
+}
+
+// 实际查询变为
+db.users.find({ username: {"$ne": ''}, password: {"$ne": ''}})	//这将匹配所有用户名和密码不为空的文档
+```
+
+- 防范查询注入攻击
+
+```js
+// 防范查询注入攻击，将req.body、res.query、req.params中的 $ 过滤掉 
+const mongoSanitize = require('express-mongo-sanitize')
+
+app.use(mongoSanitize())
+```
+
+- 防范XSS攻击
+
+```js
+// 防范恶意html注入，将<、>转为html实体
+const xss = require('xss-clean')
+
+app.use(xss())
+```
 
 
 
@@ -1567,6 +1880,30 @@ exports.restrictTo = (...roles) => {
 
 
 
+#### 参数污染
+
+- http参数污染，攻击者通过**向http请求注入多个同名参数**，利用不同web技术对参数处理的差异来实现恶意目的
+
+```js
+const hpp = require('hpp')
+app.use(hpp({
+  whitelist: ['duration']   // 设置白名单，允许某些字段重复
+}))
+```
+
+
+
+- 可以严格参数验证，确保参数唯一
+
+```js
+function validateParams(req) {
+  const idValues = [].concat(req.query.id || [])
+  if(idValues.length > 1) {
+    throw new Error('duplicate params not allowed')
+  }
+  return idValues[0]
+}
+```
 
 
 
