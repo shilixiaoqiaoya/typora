@@ -1799,6 +1799,8 @@ userSchema.pre(/^find/, function(next) {
 #### 速率限制
 
 -  全局中间件，统计某段时间内同一个ip的请求数量，当请求太多时阻止请求
+- 超过设置的规定时间内请求次数，返回 429 Too Many Requests
+- DDoS攻击：通过大量恶意流量淹没目标系统，使其无法提供正常服务的网络攻击方式
 
 ```js
 const rateLimit = require('express-rate-limit')
@@ -1856,7 +1858,7 @@ db.users.find({ usename: req.body.username, password: req.body.password })
 db.users.find({ username: {"$ne": ''}, password: {"$ne": ''}})	//这将匹配所有用户名和密码不为空的文档
 ```
 
-- 防范查询注入攻击
+- 防范**查询注入攻击**
 
 ```js
 // 防范查询注入攻击，将req.body、res.query、req.params中的 $ 过滤掉 
@@ -1865,7 +1867,7 @@ const mongoSanitize = require('express-mongo-sanitize')
 app.use(mongoSanitize())
 ```
 
-- 防范XSS攻击
+- 防范**XSS攻击**
 
 ```js
 // 防范恶意html注入，将<、>转为html实体
@@ -1873,8 +1875,6 @@ const xss = require('xss-clean')
 
 app.use(xss())
 ```
-
-
 
 
 
@@ -1908,6 +1908,59 @@ function validateParams(req) {
 
 
 
+
+
+
+# 数据建模
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250516143021776.png" alt="image-20250516143021776" style="zoom:40%;" />
+
+### 数据关联模式
+
+##### 引用式Referenced
+
+- 通过id建立关联，适合一对多、多对多关系
+
+```js
+// 用户文档
+{
+  _id: '123',
+  name: 'coder',
+  posts: ['post1', 'post2']  // 引用帖子id
+}
+// 帖子文档
+{
+  _id: 'post1',
+  title: 'xxx',
+  content: 'yyy'
+}
+```
+
+- 引用类型：
+  - 子引用：适合一对少，上方例子是子引用，
+  - 父引用：适合一对多
+  - 双向引用：适合多对多
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250516151154651.png" alt="image-20250516151154651" style="zoom:40%;" />
+
+ 
+
+
+
+##### 嵌入式Embedded
+
+- 将关联数据直接嵌套在父文档中，适合一对一、一对少关系
+
+```js
+{
+  _id: '123',
+  name: 'john',
+  post: {
+  	title: 'xxx',
+    content: 'yyy'
+  }
+}
+```
 
 
 
