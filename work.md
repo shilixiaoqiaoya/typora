@@ -1509,6 +1509,186 @@ class SocketClient {
 
 
 
+# SSE
+
+- **Server-Sent Events** 是一种基于HTTP的服务器推送技术，允许服务器单向地向客户端实时推送数据
+
+- websocket是双向通信；SSE是单向通信，基于http协议
+- 原理
+  - 客户端通过EventSource API发起连接
+  - 服务端保持连接打开，通过HTTP流发送事件
+  - 服务端可以随时推送数据，客户端接收并处理
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250517184622650.png" alt="image-20250517184622650" style="zoom:50%;" />
+
+
+
+### 前端
+
+```js
+const eventSource = new EventSource('http_api_url')
+
+//连接建立
+eventSource.onopen = (event) => {
+  console.log('连接建立')
+}
+
+//监听消息
+eventSource.onmessage = (event) => {
+  console.log('收到消息', event.data)
+}
+
+// 监听特定事件类型
+eventSource.addEventListener('customEvent', (event) => {
+  console.log('自定义事件', event.data)
+})
+
+// 错误处理
+eventSource.onerror = (error) => {
+  console.error('SSE连接出错', error)
+}
+```
+
+
+
+### 后端
+
+```js
+// express
+app.get('/sse-endpoint', (req, res) => {
+  // 设置sse相关头信息
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
+  })
+  
+  // 发送初始数据
+  res.write('连接已建立')
+  
+  // 定时推送数据
+  const timer = setInterval(() => {
+    res.write(`data: ${JSON.stringify({ time: new Date().toISOString() })}`)
+  }, 1000)
+  
+  // 客户端断开连接时
+  req.on('close', () => {
+    clearInterval(timer)
+    res.end()
+  })
+})
+```
+
+
+
+
+
+### 缺点
+
+- 仅支持文本数据
+- 单向通信
+- 部分浏览器有并发连接限制
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250517182319844.png" alt="image-20250517182319844" style="zoom:50%;" />
+
+
+
+
+
+# jsbridge
+
+#### 原生开发
+
+- ios和android，虽然性能优越且功能全面，但开发周期较长，需要重新打包应用并等待用户更新
+
+#### web开发
+
+- 具备良好的跨平台特性，易于发布和更新，但在性能和访问硬件能力等方面存在一定限制
+
+#### jsbridge
+
+- H5可以访问原生功能，如打开相机、发送通知
+- 在h5和原生之间方便地传递复杂的数据结构
+- native执行完操作后，可以将结果反馈给h5
+
+
+
+#### Native => Web
+
+- native调用web端，js作为解释性语言，最大的特性是可以通过解释器执行一段js代码，利用这一点，将拼接的js代码字符串，传入js解析器执行就可以，js解析器在这里就是webview
+- Android提供了evaluateJavascript来执行js代码，并且可以获取返回值执行回调
+
+```java
+String jsCode = String.format("window.showWebDialog('%s')", text)
+webView.evaluateJavascript(jsCode, new ValueCallback<String>() {
+  public void onReceiveValue(String value) {
+		...
+  }
+})
+```
+
+
+
+
+
+#### Web => Native
+
+- URL Schema
+
+```js
+<protocol>://<host>/<path>?<query>#fragment
+```
+
+native加载webview后，web发送的所有请求都会经过webview组件，所以native可以重写webview里的方法，拦截web发起的请求
+
+对请求的格式进行判断，符合自定义的URL Schema，对url进行解析，进而调用原生native的方法
+
+- 在webview中注入js api
+
+通过webview提供的接口，将native的相关接口注入到js的context（window)的对象中
+
+Android的接口 @JavascriptInterface
+
+```js
+// 注入全局js对象
+webView.addJavascriptInterface(new NativeBridge(this), 'NativeBridge')
+
+class NativeBridge {
+  private Context ctx
+  NativeBridge(Context ctx) {
+    this.ctx = ctx
+  }
+  
+  @JavascriptInterface
+  public void showNativeDialog(String text) {
+    new AlertDialog.Builder(ctx).setMessage(text).create().show()
+  }
+}
+
+// 调用nativeBridge的方法
+window.NativeBridge.showNativeDialog('hello')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Dom API
@@ -2438,16 +2618,6 @@ const compressImage = (base64, rate = 0.8) => {
 
 
 
-### 安全性问题
-
-
-
-
-
-
-
-
-
 
 
 
@@ -2593,6 +2763,60 @@ performance API自定义指标 mark measure
 - js对象持有已从dom中删除的元素的引用，这会阻止这些dom元素的内存被释放
 
 **5、监听器的回调未进行移除**
+
+
+
+
+
+# 视频转码
+
+- 把视频从一种格式转换成另一种格式，类似把中文书翻译成英文书，内容不变但是形式变了
+- **视频转码 = 格式转换 + 压缩瘦身，目的是让视频在不同设备、网速下流畅播放**
+- 为什么需要转码
+
+| 场景         | 例子                                                         |
+| ------------ | ------------------------------------------------------------ |
+| 兼容不同设备 | iphone用.mov，安卓用.mp4，网站需要统一成.mp4                 |
+| 节省流量     | 原视频1GB太大，转成100mb的压缩版，加载更快                   |
+| 适配不同网速 | 4G用户看高清版，2G用户看低清版（如b站的1080p/720p/480p多分辨率选择） |
+
+- 转码过程类比
+
+| 步骤     | 技术实现               | 类比                            |
+| -------- | ---------------------- | ------------------------------- |
+| 拆解视频 | 把书拆成一页页纸       | 解码原始视频（如mkv -> 帧画面） |
+| 修改内容 | 将中文翻译成英文       | 改变编码格式（H.264 -> H.265)   |
+| 重新打包 | 将翻译好的纸装订成新书 | 编码成目标格式(帧画面 -> mp4)   |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

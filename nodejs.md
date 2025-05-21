@@ -1,3 +1,189 @@
+# 认识
+
+![image-20250517192343772](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250517192343772.png)
+
+- nodejs可以使js运行在操作系统中，实现网络请求和 文件操作的功能
+
+### 响应html
+
+```js
+server.on('request', (req, res) => {
+  fs.readFile('./index.html', 'utf-8', (err, data) => {
+    res.write(data)
+    res.end()
+  })
+})
+```
+
+
+
+
+
+### 文件上传
+
+- form-data数据
+
+```html
+<form action='/profile' method='post' enctype='multipart/form-data'>
+  <input type='file' name='avatar'/>
+  <button type='submit'>upload</button>  
+</form>
+```
+
+- 利用multer上传form-data数据
+- 将图片保存至node静态资源服务器中
+
+```js
+const app = express()
+//利用fs对图片重命名
+const fs = require('fs')
+// 上传form-data
+const multer = require('multer')
+// 规定文件上传路径
+const upload = multer({ dest: 'public/' }) 
+
+// 设置静态资源服务器,可以通过get请求获取到图片
+app.use(express.static('public'))
+
+const { promisity } = require('util')
+const rename = promisity(fs.rename)
+
+// 会将图片放在public文件夹下，req.file是上传的图片file
+app.post('/upload', upload.single('img-name'), async (req, res) => {
+  console.log(res.file）
+  // {
+  //   fieldname: 'file',
+  //   originalname: '👍.png',
+  //   encoding: '7bit',
+  //   mimetype: 'image/png',
+  //   destination: 'public/',
+  //   filename: '576ff9c68d686f57d45b706edbbcb66c',
+  //   path: 'public/576ff9c68d686f57d45b706edbbcb66c',
+  //   size: 2617
+  // }
+  
+	const type = req.file.originalname.split('.')[1]
+  const fileName = req.file.filename + '.' + type
+  try {
+    await rename(`./public/${req.file.filename}`, `./public/${fileName}`)   // 对图片进行重命名保证图片可查看
+    res.status(201).json({ fileName })
+  } catch(err) {
+    res.status(500).json({err})
+  }
+})
+```
+
+
+
+
+
+### 视频点播
+
+##### 获取上传凭证
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250520113453395.png" alt="image-20250520113453395" style="zoom:70%;" />
+
+- 客户端向服务端发请求，服务端向阿里云发请求拿到上传凭证，服务端将凭证下发到客户端，客户端就可以上传视频了
+
+```js
+// nodejs sdk  服务端向阿里云发请求拿到上传凭证
+const RPCClient = require('@alicloud/pop-core').PRCClient
+function initVodClient(accessKeyId, accessKeySecret) {
+  const regionID = 'cn-shanghai'
+  const client = new RPCClient({
+    accessKeyId: xxx,
+    accessKeySecret: yyy,
+    endpoint: 'http://vod.' + regionID + '.aliyuncs.com'
+  })
+  return client
+}
+
+app.get('/getvod', (req, res) => {
+  const client = initVodClient('test-accessKeyId', 'test-accessKeySecret')
+  client.request('CreateUploadVideo' {
+     Title: 'video_title',
+     Filename: 'filename.mp4'
+  }).then(data => {
+    // 将uploadAddress uploadAuth videoid 返回给客户端
+    res.status(200).json({
+      vod: data
+    })
+  })
+})
+```
+
+```js
+// web sdk  客户端拿到上传凭证，上传视频
+axios.get('http://localhost:5500/api/v1/video/getvod').then(data => {
+  ...
+  // 上传视频逻辑
+})
+```
+
+
+
+
+
+##### 视频信息落库
+
+```js
+// schema
+const videoSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true
+  },
+  videoId: {
+    type: String,
+    required: true
+  },
+  user: {
+    type: mongoose.ObjectId,
+    required: true,
+    ref: 'User'
+  }
+})
+
+app.post('/createvideo', async (req, res) => {
+  req.body.user = req.user._id
+  const video = new Video(req.body)
+  await video.save()
+	res.send('视频信息保存成功')
+})
+```
+
+
+
+
+
+### redis
+
+是一个**基于内存的键值存储数据库**，同时支持持久化，并提供多种数据结构（如字符串、哈希、列表、集合等）
+
+被广泛应用于缓存、消息队列、实时计算、排行榜等场景，因其高性能、低延迟而备受青睐
+
+数据主要存储在内存中，读写速度超快（10万+QPS）
+
+
+
+#### QPS
+
+Queries per second **每秒查询数**是衡量系统（如数据库）每秒能处理的请求数量的性能指标
+
+例如：redis的qps是10万，表示每秒可处理10万次读写操作，评估系统的吞吐量和并发处理能力
+
+通过QPS推算服务器负载，觉得是否需要扩容，所需服务器数量 = 总QPS / 单机 QPS
+
+目标QPS为50万，单机Redis QPS为10万 --》 至少需要5台Redis实例
+
+
+
+
+
+
+
+
+
 # 基础知识
 
 #### 同步读写文件
@@ -25,6 +211,8 @@ fs.readFile('.txt/start.txt', 'utf-8', (err, data) => {
 fs.writeFile('./txt/final.txt', '这是被写入的文本', 'utf-8', err => {
   console.log('文本已被写入')
 })
+
+// 写的操作是将内容直接覆盖的，实现追加需先读取后写入 
 ```
 
 
@@ -128,8 +316,6 @@ const server = http.createServer((req, res) => {
 	res.end('Hello from the server')
 })
 ```
-
-
 
 
 
@@ -313,6 +499,43 @@ app.use(express.static(`${__dirname}/public`))
 
 
 
+三方中间件
+
+- morgan 用于记录HTTP请求的详细信息
+
+```js
+app.use(morgan('dev'))
+```
+
+- cors 解决跨域问题
+
+```js
+// 允许所有来源的请求
+app.use(cors())
+
+// 自定义cors规则
+const corsOptions = {
+  origin: 'http://localhost:3000',   // 只允许该来源
+  methods: ['GET', 'POST'],  // 允许的http方法
+  allowedHeaders: ['Content-Type'],  // 允许的请求头
+  credentials: true,	 // 允许携带cookie(如jwt认证)
+  maxAge: 60000   // 预检请求缓存时间
+}
+app.use(cors(corsOptions))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 #### 环境变量
 
 1、process.env
@@ -410,7 +633,7 @@ node app.js					// 此时process.cwd()是/my-project/src，会去src下找config
 
 #### process.argv
 
-- 是一个数组，包含了启动脚本进程时传入的命令行参数
+- 是一个数组，包含了启动脚本进程时传入的**命令行参数**
 
 ```js
 [
@@ -736,10 +959,10 @@ app.post('/api/data', (req, res) => {
 
 # MongoDB
 
-- **【是非关系型数据库，属于文档型】**
+- **【是非关系型数据库(NOSQL)，属于文档型】**
 - 关系型数据库像Excel表格一样组织数据，有严格的行列结构
   - 适合处理结构化数据
-- 非关系型数据库像JSON格式存储数据，结构灵活
+- 非关系型数据库以BSON（类似JSON）格式存储数据，结构灵活
   - 适合非结构化数据
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250509165242645.png" alt="image-20250509165242645" style="zoom:40%;" />
@@ -825,7 +1048,16 @@ db.tours.deleteMany ({})
 
 ### mongoose
 
-- mongoose是mongodb对象建模工具，它在原生mongodb驱动之上构建了一个抽象层，为开发者提供了更高级、更便捷的数据操作方式
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250519162852263.png" alt="image-20250519162852263" style="zoom:70%;" />
+
+- **【MongoDB的二次封装】**
+- mongoose是mongodb对象建模工具，**它在原生mongodb驱动之上构建了一个抽象层**，为开发者提供了更高级、更便捷的数据操作方式
+- 特点
+  - **强制schema：定义数据结构和校验规则**
+  - 中间件
+  - 数据校验
+  - **面向对象：将集合collection映射为model类**
+
 
 ```js
 const mongoose = require('mongoose')
@@ -876,6 +1108,40 @@ testTour.save().then(doc => {
   console.error(err)
 })
 ```
+
+
+
+
+
+#### schema中ref
+
+- 作用是告诉MongoDB这个字段关联到哪个集合（表），**相当于关系型数据库中的外键**
+- 关联查询，通过`.populate()`自动填充关联的完整用户数据
+- 数据一致性校验，存储的ObjectId必须存在于User集合中
+
+```js
+// User模型
+const userSchema = new mongoose.Schema({ name: String })
+const User = mongoose.model('User', userSchema)
+
+// Post模型
+const postSchema = new mongoose.Schema({
+  content: String,
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }   // 关联到User Model
+})
+const Post = mongoose.model('Post', postSchema)
+
+// 创建一个用户
+const user = new User({ name: '张三' })
+// 创建帖子时关联用户id
+const post = new Post({ content: 'hello', user: user._id })
+
+// 查询post
+Post.find().populate('user')
+// [{ content: 'hello', user: { name: '张三', _id: '...' } }]
+```
+
+
 
 
 
@@ -992,7 +1258,7 @@ const skip = (page - 1) * limit
 query = query.skip(skip).limit(limit)  // skip代表跳过前多少个
 
 if(req.query.page){
-  const numTours = await Tour.countDocuments()
+  const numTours = await Tour.countDocuments()  // 获取集合的总文档数
   if(skip >= numTours) throw new Error('this page do not exist')
 }
 ```
@@ -1008,7 +1274,8 @@ exports.updateTour = async (req, res) => {
   const tour = await Tour.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
 }
 
-//  runValidators设为true，表示在更新数据时也需要复合schema模式
+// new设为true, 决定了函数返回的内容是 更新前的旧文档 还是 更新后的新文档
+// runValidators设为true，表示在更新数据时也需要复合schema模式
 ```
 
 
@@ -1563,7 +1830,7 @@ exports.protect = catchAsync(async function(req, res, next) {
     return next(new AppError('user changed password', 401))
   }
   
-  req.user = currentUser   // 将user放到req上, 方便下面授权获取 req.user.role
+  req.user = currentUser   // 将user放到req上
   next() 
 }) 
 
@@ -1961,6 +2228,12 @@ function validateParams(req) {
   }
 }
 ```
+
+
+
+
+
+
 
 
 
