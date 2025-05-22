@@ -166,7 +166,7 @@ app.post('/createvideo', async (req, res) => {
 
 
 
-#### QPS
+### QPS
 
 Queries per second **每秒查询数**是衡量系统（如数据库）每秒能处理的请求数量的性能指标
 
@@ -177,6 +177,32 @@ Queries per second **每秒查询数**是衡量系统（如数据库）每秒能
 目标QPS为50万，单机Redis QPS为10万 --》 至少需要5台Redis实例
 
 
+
+
+
+### nginx
+
+- 在生产环境中，nodejs通常需要与nginx这样的web服务器配合使用
+
+```js
+客户端 --》 Nginx（负载均衡、SSL、静态文件） --》 多个Node.js实例
+```
+
+- nginx可以将流量分发到多个nodejs实例，提高应用程序的并发处理能力
+- nginx可以高效地提供静态文件，减少nodejs进程的负担
+- nginx反向代理，隐藏nodejs服务器的细节
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250522152550165.png" alt="image-20250522152550165" style="zoom:70%;" />
+
+- 正向代理
+
+![image-20250522152526438](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250522152526438.png)
+
+
+
+master主进程 ，接受各个客户端发来的请求，将其分配给子进程
+
+ work子进程 
 
 
 
