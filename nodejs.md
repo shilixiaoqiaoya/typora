@@ -1,3 +1,99 @@
+REPL: 输入、执行、输出
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250523110644026.png" alt="image-20250523110644026" style="zoom:33%;" />
+
+
+
+
+
+Path内置库，用于处理文件和目录路径，它提供了一系列工具方法来跨平台（windows、linux、macos）解析、拼接、规范化路径
+
+
+
+form表单提交数据
+
+```js
+const http = require('http')
+const fs = require('fs')
+
+const server = http.createServer((req, res) => {
+  const { url, method } = req
+  if(url === '/') {
+    res.write('<html>')
+    res.write('<head><title>enter message</title></head>')
+    res.write('<body><form action="/message" method="POST"><input type="text" name="message"/><button type="submit">send</button></form></body>')
+    res.write('</html>')
+    return res.end()
+  }
+  if(url === '/message' && method === 'POST') {
+    const body = []
+    req.on('data', (chunk) => {
+      body.push(chunk)
+    })
+    req.on('end', () => {
+      const parsedBody = Buffer.concat(body).toString()    // message='...'
+      const msg = parsedBody.split('=')[1]
+      fs.writeFileSync("message.txt", msg)
+      res.statusCode = 302         
+      res.setHeader('Location', '/')      // 重定向
+      res.end()
+    })
+  }
+})
+
+server.listen(3000)
+```
+
+
+
+
+
+事件驱动：注册回调；非阻塞
+
+
+
+
+
+事件循环
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250523161911308.png" alt="image-20250523161911308" style="zoom:40%;" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 认识
 
 ![image-20250517192343772](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250517192343772.png)
@@ -12,6 +108,11 @@ server.on('request', (req, res) => {
     res.write(data)
     res.end()
   })
+})
+
+// 使用sendFile
+router.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'views', 'test.html'))
 })
 ```
 
@@ -365,6 +466,8 @@ app.all('*', (req, res, next) => {
 
 
 
+
+
 #### events模块
 
 ```js 
@@ -456,7 +559,6 @@ fs.createWriteStream()
 
 ```js
 app.use(function(req, res, next) => {
-
 })
 ```
 
@@ -518,7 +620,13 @@ router.route('/').post(checkBody, createTour)
 4、静态资源中间件
 
 ```js
-app.use(express.static(`${__dirname}/public`))
+app.use(express.static(path.join(__dirname, 'public'))
+```
+
+- **对于静态资源的Js和css文件、图片，node会在public文件夹下找**
+
+```js
+<link href='/css/main.css'>
 ```
 
 
@@ -549,8 +657,6 @@ const corsOptions = {
 }
 app.use(cors(corsOptions))
 ```
-
-
 
 
 
@@ -652,6 +758,17 @@ node app.js					// 此时process.cwd()是/my-project/src，会去src下找config
 ```
 
 - `./`是危险的，  `__dirname`是可靠的，建议用`path.join()`+ `__dirname`的方式引入文件
+
+
+
+```js
+// ？？？
+path.dirname(process.mainModule.filename)
+```
+
+
+
+
 
 
 
@@ -1143,6 +1260,7 @@ testTour.save().then(doc => {
 
 - 作用是告诉MongoDB这个字段关联到哪个集合（表），**相当于关系型数据库中的外键**
 - 关联查询，通过`.populate()`自动填充关联的完整用户数据
+  - 使用populate()时，mongoose会执行额外的查询，会对性能有影响
 - 数据一致性校验，存储的ObjectId必须存在于User集合中
 
 ```js
@@ -1153,7 +1271,7 @@ const User = mongoose.model('User', userSchema)
 // Post模型
 const postSchema = new mongoose.Schema({
   content: String,
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }   // 关联到User Model
+  user: { type: mongoose.Schema.ObjectId, ref: 'User' }   // 关联到User Model
 })
 const Post = mongoose.model('Post', postSchema)
 
@@ -1166,6 +1284,18 @@ const post = new Post({ content: 'hello', user: user._id })
 Post.find().populate('user')
 // [{ content: 'hello', user: { name: '张三', _id: '...' } }]
 ```
+
+```js
+// 利用mongoose中间件
+postSchema.pre(/^find/, function(next) {
+  this.populate({
+    path: 'user',
+    select: 'name photo'
+  })
+})
+```
+
+
 
 
 
@@ -1826,7 +1956,7 @@ exports.login = catchAsync(async (req, res, next) => {
 
 
 
-#### 保护路由
+#### 保护路由(验证token)
 
 ```js
 // 利用路由中间件
@@ -2254,6 +2384,103 @@ function validateParams(req) {
   }
 }
 ```
+
+
+
+
+
+
+
+
+
+### 虚拟填充
+
+****
+
+- 子引用会导致父文档的子引用数组越来越大
+- **解决方法：虚拟填充（virtual populate），保存对所有子文档的引用，但是没有真正持久化，不会在数据库中创建真实的引用字段**
+
+- 在查询时动态关联文档 
+
+```js
+// 用户模型
+const UserSchema = new mongoose.Schema({
+  name: String
+})
+// 博客模型
+const PostSchema = new mongoose.Schema({
+  title: String,
+  author: { type: mongoose.Schema.ObjectId, ref: 'User' }
+})
+
+// 在用户模型中设置虚拟填充
+UserSchema.virtual('posts', {
+  ref: 'Post',    // 关联的模型
+  localField: '_id',   // 本地字段（用户id）
+  foreignField: 'author',   // 外键字段
+  justOne: false  // 设置为false表示一对多关系
+})
+
+// 查询用户并填充其所有文章
+const user = await User.findOne({ name: '张三' }).populate('posts')
+```
+
+
+
+
+
+### 嵌套路由
+
+- merge params **允许子路由器访问父路由器的参数**
+- 例子：获取所有的评论、获取某旅行的所有评论
+  - 对于某旅行，需要在tour路由嵌套review路由
+
+```js
+// tourRouter.js
+const tourRouter = express.Router()
+tourRouter.use('/:tourId/reviews', reviewRouter)    // 路由嵌套
+
+// reviewRouter.js  
+const reviewRouter = express.Router({ mergeParams: true })   // 合并参数 mergeParams，以访问到tourId字段
+reviewRouter.route('/').get(reviewController.getAllReviews)
+
+// reviewController.js
+exports.getAllReviews = catchAsync(async (req, res, next) => {
+  let filter = {}
+  if(req.params.tourId) filter = { tour: req.params.tourId }
+  const reviews = await Review.find(filter)
+  res.status(200).json({
+    status: 'success',
+    results: reviews.length,
+    daat: {
+      reviews
+    }
+  })
+})
+
+// app.js
+app.use('/api/v1/tours', tourRouter)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

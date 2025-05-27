@@ -1595,6 +1595,217 @@ app.get('/sse-endpoint', (req, res) => {
 
 
 
+# web components
+
+#### 基本流程
+
+- **Window对象提供了一个只读属性：`customElements`可以注册一个自定义元素**
+
+- **shadow dom**：将一个shadow dom 附加到自定义元素上，使用通用的dom方法向shadow dom中添加子元素、事件监听等；与主文档分开呈现，保持自定义元素的功能私有
+- HTML template标签：元素内容不会被渲染
+
+- 生命周期
+
+  - connectedCallback：元素插入dom时调用
+
+  - disconnectCallback：元素从dom移除时调用
+
+  - attributeChangedCallback：元素属性变化时调用
+
+```js
+// 定义
+<template id="hw-template">
+  <style>
+  	p {
+      color: green;
+      font-size: 20px;
+    }
+  </style>
+  <p>hello world</p>
+</template>
+<script>
+  class HelloWorld extends HTMLElement {
+    constructor() {
+      super()
+      // 获得组件的模板内容
+      const templateContent = document.querySelector('#hw-template').content
+
+      // 创建shadow dom
+      const shadowRoot = this.attachShadow({ mode: 'open' })
+
+      // 将模版内容添加到shadow dom
+      shadowRoot.appendChild(templateContent.cloneNode(true))
+      
+      // 获取传递的属性
+      const msg = this.getAttribute('message')  
+    }
+    
+    // 元素插入dom时调用 
+    connectedCallback() {
+      console.log("insert");
+    }
+  }
+  customElements.define('hello-world', HelloWorld)
+</script>
+
+// 使用
+<hello-world>Hi</hello-world>
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250527114147847.png" alt="image-20250527114147847" style="zoom:100%;" />
+
+- attachShadow()，mode参数
+  - open: 可以从外部访问shadow dom
+  - closed: 不可以从外部访问shadow dom
+
+```js
+document.querySelector('hello-world').shadowRoot
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250527142945820.png" alt="image-20250527142945820" style="zoom:100%;" />
+
+
+
+#### 传递属性
+
+```js
+class HelloWorld extends HTMLElement {
+  constructor() {
+    ...
+    // 获取传递的属性
+    const msg = this.getAttribute('message')  
+  }
+}
+
+// 使用
+<hello-world message='test'>Hi</hello-world>
+```
+
+
+
+
+
+#### 自定义事件
+
+通过`new CustomEvent()`自定义事件，通过`this.dispatchEvent()`将事件广播出，外部使用addEventListener监听
+
+```js
+this.dispatchEvent(new CustomEvent('play', {
+  
+}))
+```
+
+
+
+
+
+### vue支持 
+
+1、以`.ce.vue`后缀写vue组件
+
+文件会开启vue的自定义元素模式，会将样式暴露为组件的styles选项，以便在`defineCustomElement`时能够被提取和使用，组件初始化时能够将样式注入到web组件的shadow root上，以便样式生效
+
+```js
+// src/counter/counter.ce.vue
+<template>
+  <div>
+  	<span class='count'>{{ count }}</span>
+		<button @click="add">+1</button>
+  </div>
+</template>
+<script setup>
+  import { ref } from 'vue'
+  const count = ref(0)
+  const addCount = () => {
+    count.value++
+  }
+</script>
+<style scoped>
+  .count {
+    font-size: 20px;
+  }
+</style>
+```
+
+2、创建自定义元素
+
+```js
+// src/counter/index.ts
+import { defineCustomElement } from 'vue'
+import Counter from 'src/counter/counter.ce.vue'
+
+const CustomElement = defineCustomElement(Counter)
+export function register(tagName:string = 'my-count') {
+  customElements.define(tagName, CustomElement)
+}
+```
+
+3、使用
+
+```js
+// App.vue
+<template>
+  <my-count></my-count>
+</template>
+<script>
+  import { register } from 'src/counter/index.ts'
+  register()
+</script>
+```
+
+
+
+
+
+
+
+
+
+lit库：google开发的轻量级web components库
+
+```js
+import { LitElement, html, css } from 'lit'
+class LitButton extends LitElement {
+  static styles = css`
+  	button { background: xxx }
+  `
+  render() {
+    return html`<button @click=${this._onClick}><slot></slot></button>`
+  }
+  _onClick() {
+    this.dispatchEvent(new CustomEvent('lit-click'))
+  }
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # jsbridge
 
 #### 原生开发
@@ -2804,15 +3015,7 @@ performance API自定义指标 mark measure
 
 
 
-
-
-
-
-
-
-
-
-
+ 
 
 
 
