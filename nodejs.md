@@ -1,4 +1,8 @@
-REPL: 输入、执行、输出
+# 基本知识
+
+#### REPL
+
+- 输入、执行、输出
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250523110644026.png" alt="image-20250523110644026" style="zoom:33%;" />
 
@@ -6,11 +10,13 @@ REPL: 输入、执行、输出
 
 
 
-Path内置库，用于处理文件和目录路径，它提供了一系列工具方法来跨平台（windows、linux、macos）解析、拼接、规范化路径
+#### Path库
+
+- 用于处理文件和目录路径，它提供了一系列工具方法来跨操作系统（windows、linux、macos）解析、拼接、规范化路径
 
 
 
-form表单提交数据
+#### form表单提交数据
 
 ```js
 const http = require('http')
@@ -48,30 +54,35 @@ server.listen(3000)
 
 
 
-事件驱动：注册回调；非阻塞
+#### 事件驱动
+
+注册回调；非阻塞
+
+- **适合io密集型应用**，文件操作和网络请求多的
+- **不适合运算密集型应用**，比如视频渲染和图片操作，这种需要cpu完成大量的运算，文件操作和网络请求极少，导致单线程一直在为一个用户运算，阻塞
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250528102453588.png" alt="image-20250528102453588" style="zoom:33%;" />
 
 
 
 
 
-事件循环
+#### js执行
 
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250523161911308.png" alt="image-20250523161911308" style="zoom:40%;" />
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250529154212058.png" alt="image-20250529154212058" style="zoom:50%;" />
 
+- 一部分耗时操作会由libuv交给线程池去执行：文件操作、加密，对应事件循环的`pendingOperations`数组
+-  一些操作会由libuv委托给操作系统内核，不占用线程池资源：网络请求(发出请求、接收请求)，对应事件循环的`pendingOSTasks`数组
 
-
-
-
-
-
+【通常文件操作要比网络请求慢得多，文件操作使用有限的线程池，网络请求直接由操作系统处理，不受线程池限制】
 
 
 
 
 
+#### 提升执行性能
 
-
-
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250529205216012.png" alt="image-20250529205216012" style="zoom:50%;" />
 
 
 
@@ -81,6 +92,65 @@ server.listen(3000)
 
 
 
+
+
+
+
+#### 事件循环
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250529170523734.png" alt="image-20250529170523734" style="zoom:50%;" />
+
+```js
+1、是否有pending setTimeout/ setInterval / setImmediate
+2、是否有pendingOsTasks (服务器监听某端口)
+3、是否有pendingOperations（读取文件）
+
+若有其一，会进入下一次事件循环 tick，程序不会退出
+
+每次事件循环tick 
+- check pendingTimers and see if any functions are ready to be called 【setTimeout/ setInterval】
+- check pendingOSTasks、pendingOperations and call relevant callbacks
+- ???
+- check pendingTimers 【setImmediate】
+- close阶段   
+```
+
+ 
+
+
+
+
+
+
+
+#### libuv
+
+- 是一个跨平台异步IO库，充当了【**nodejs与操作系统之间的桥梁】**，负责处理**事件循环、文件系统操作、网络通信等底层任务**
+
+| 功能         | 说明                                                         |
+| ------------ | ------------------------------------------------------------ |
+| 事件循环     | 利用「事件循环+线程池」实现非阻塞io，平衡js单线程的局限性    |
+|              | 管理定时器、io事件和回调的执行顺序                           |
+| 跨平台抽象层 | 统一不同操作系统的io操作（如文件读写、网络请求）             |
+|              | 让开发者无需关心操作系统差异                                 |
+| 线程池管理   | 将部分阻塞操作（如文件读写、DNS解析）委托给线程池，避免阻塞主线程 |
+
+- 读取文件
+  - node.js代码调用fs.readFile
+  - v8执行js并调用libuv的接口
+  - libuv调用操作系统内核（如windows的IOCP）
+    - libuv将任务放入线程池，线程池中的线程执行阻塞的文件读取，读取完成后，libuv将回调放入事件循环队列，事件循环在主线程执行回调
+
+- http服务器
+  - libuv使用操作系统提供的非阻塞网络I/O（如linux的epoll）
+
+
+
+
+
+操作系统中的线程调度
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250527215527238.png" alt="image-20250527215527238" style="zoom:57%;" />
 
 
 
@@ -313,9 +383,28 @@ master主进程 ，接受各个客户端发来的请求，将其分配给子进�
 
 # 基础知识
 
-#### 同步读写文件
+#### node模块
+
+- 每个js文件都是一个模块
 
 ```js
+console.log(module)
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250528104624307.png" alt="image-20250528104624307" style="zoom:40%;" />
+
+
+
+
+
+
+
+
+
+#### 读写文件
+
+```js
+// 同步
 const fs = require('fs')
 // 读
 const textIn = fs.readFileSync('./txt/input.txt', 'utf-8')
@@ -324,13 +413,9 @@ console.log(textIn)
 const textOut = `${textIn}\nCreated on ${Date.now()}`
 // 写 
 fs.writeFileSync('./txt/output.txt', textOut)
-```
 
 
-
-#### 异步读写文件
-
-```js
+// 异步
 fs.readFile('.txt/start.txt', 'utf-8', (err, data) => {
   console.log(data)
 })
@@ -341,6 +426,55 @@ fs.writeFile('./txt/final.txt', '这是被写入的文本', 'utf-8', err => {
 
 // 写的操作是将内容直接覆盖的，实现追加需先读取后写入 
 ```
+
+
+
+读取文件时，会访问两次硬盘
+
+- **第一次访问硬盘，获取文件元数据**，包括文件大小、修改时间等，数据会返回给nodejs运行时
+
+  基于获取的文件元数据，nodejs发起实际的文件内容读取请求
+
+- **第二次访问硬盘，文件内容被读取**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250529183511196.png" alt="image-20250529183511196" style="zoom:53%;" />
+
+```js
+const https = require('https')
+const crypto = require('crypto')
+const fs = require('fs')
+const startTime = Date.now()
+// 请求
+function doRequest() {
+  https.request('htttps://www.google.com', res => {
+    res.on('data', () => {});
+    res.on('end', () => {
+      console.log('request', Date.now() - startTime)
+    })
+  }).end()
+}
+// 加密
+function doHash() {
+	crypto.pbkdf2('a', 'b', 100000, 512, 'sha512', () => {
+  	console.log('hash:', Date.now() - startTime)
+	})
+}
+
+doRequest()
+fs.readFile('xxx.js', 'utf-8', () => {
+  console.log('fs', Date.now() - startTime)
+})
+doHash()
+doHash()
+doHash()
+doHash()
+```
+
+
+
+
+
+
 
 
 
@@ -373,18 +507,57 @@ fs.writeFile('./txt/final.txt', '这是被写入的文本', 'utf-8', err => {
 
 - 当事件循环遇到计算密集型任务，会将其分流到线程池，避免阻塞事件循环
   - 阻塞任务完成后，回调返回事件循环
-- 默认有4个线程，可以处理以下几种异步IO操作
+- **【默认有4个线程】**，可以处理以下几种异步IO操作
   - 文件系统操作（fs模块）
   - 加密操作（crypto模块）
   - 压缩/解压操作（zlib模块）
   - dns操作（dns模块）
 - 线程数是可配置的，通过环境变量调整
+  - 过多的线程会导致上下文切换开销
+
 
 ```js
 process.env.UV_THREADPOOL_SIZE = 1
 ```
 
+- 以加密为例
 
+```js
+const crypto = require('crypto')
+const startTime = Date.now()
+crypto.pbkdf2('a', 'b', 100000, 512, 'sha512', () => {
+  console.log('1:', Date.now() - startTime)
+})
+crypto.pbkdf2('a', 'b', 100000, 512, 'sha512', () => {
+  console.log('2:', Date.now() - startTime)
+})
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250529150943322.png" alt="image-20250529150943322" style="zoom:43%;" />
+
+
+
+```js
+const crypto = require('crypto')
+const startTime = Date.now()
+crypto.pbkdf2('a', 'b', 100000, 512, 'sha512', () => {
+  console.log('1:', Date.now() - startTime)    // 249
+})
+crypto.pbkdf2('a', 'b', 100000, 512, 'sha512', () => {
+  console.log('2:', Date.now() - startTime)    // 256
+})
+crypto.pbkdf2('a', 'b', 100000, 512, 'sha512', () => {
+  console.log('3:', Date.now() - startTime)    // 256
+})
+crypto.pbkdf2('a', 'b', 100000, 512, 'sha512', () => {
+  console.log('4:', Date.now() - startTime)    // 257
+})
+crypto.pbkdf2('a', 'b', 100000, 512, 'sha512', () => {
+  console.log('5:', Date.now() - startTime)    // 476
+})
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250529150909620.png" alt="image-20250529150909620" style="zoom:43%;" />
 
 
 
@@ -405,6 +578,10 @@ process.env.UV_THREADPOOL_SIZE = 1
   - 这两个队列中若有回调要执行，会直接在当前阶段后立即执行，不需要等四个阶段全部执行完
 
 - **node.js进程会在事件循环为空时自动退出，无需显式调用exit()**
+
+
+
+
 
 
 
@@ -560,6 +737,11 @@ fs.createWriteStream()
 ```js
 app.use(function(req, res, next) => {
 })
+
+// 将请求体的json数据放在req.body
+app.use(express.json())
+// 解析请求体的urlencoded数据，放在req.body
+app.use(express.urlencoded({ extended: true }))
 ```
 
 
@@ -619,6 +801,8 @@ router.route('/').post(checkBody, createTour)
 
 4、静态资源中间件
 
+- 向外暴露静态资源，`localhost:3000/text.png`
+
 ```js
 app.use(express.static(path.join(__dirname, 'public'))
 ```
@@ -674,7 +858,7 @@ app.use(cors(corsOptions))
 
 - 是nodejs中的一个全局对象，包含了所有在进程启动时设置的环境变量
 - 本质是nodejs对操作系统环境变量的javascript封装
-- **【敏感信息不要直接写在代码中，应通过环境变量传递】**
+- **【敏感信息不要通过环境变量传递，应存储在后端，通过接口与后端交互】**
 - 利用dotenv将自定义环境变量与process.env结合起来
 
 ```js
@@ -688,7 +872,7 @@ USER=jonas
 PASSWORD=123456
 JWT_SECRET=my-ultra-secure-and-ultra-long-secret
 JWT_EXPIRES_IN=90d
-JWT_COOKIE_EXPIRES_IN=90
+JWT_COOKIE_EXP IRES_IN=90
 
 EMAIL_USERNAME=...
 EMAIL_PASSWORD=...
@@ -710,7 +894,7 @@ EMAIL_PORT=...
 NODE_ENV=production node app.js
 ```
 
-- ② 在package.json中设置
+- 在package.json中设置
 
 ```js
 {
@@ -721,12 +905,16 @@ NODE_ENV=production node app.js
 }
 ```
 
-- ③ 放在单独配置文件中 config.env文件
+- ② 放在单独配置文件中 config.env文件
 
 - 代码中访问
+  - **`app.get('env')`是express应用程序用于获取当前环境变量的方法**
+  - 如果没有设置NODE_ENV， `app.get('env')`返回值是development
+  - 不推荐通过`process.env.NODE_ENV`获取当前环境
+
 
 ```js
-if(process.env.NODE_ENV === 'production') {
+if(app.get('env') === 'production') {
   // 生产环境特殊逻辑
   app.use(express.static('build'))
 } else {
@@ -734,6 +922,8 @@ if(process.env.NODE_ENV === 'production') {
   app.use(require('morgan')('dev'))
 }
 ```
+
+
 
 
 
