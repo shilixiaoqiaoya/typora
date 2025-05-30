@@ -69,7 +69,7 @@ server.listen(3000)
 
 #### js执行
 
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250529154212058.png" alt="image-20250529154212058" style="zoom:50%;" />
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250529154212058.png" alt="image-20250529154212058" style="zoom:40%;" />
 
 - 一部分耗时操作会由libuv交给线程池去执行：文件操作、加密，对应事件循环的`pendingOperations`数组
 -  一些操作会由libuv委托给操作系统内核，不占用线程池资源：网络请求(发出请求、接收请求)，对应事件循环的`pendingOSTasks`数组
@@ -82,11 +82,35 @@ server.listen(3000)
 
 #### 提升执行性能
 
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250529205216012.png" alt="image-20250529205216012" style="zoom:50%;" />
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250529205216012.png" alt="image-20250529205216012" style="zoom:40%;" />
 
+##### cluster
 
+- 第一次运行`node index.js`会生成`cluster manager`
 
+- 每次执行`cluster.fork()`都会生成一个node实例
 
+  
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250530095741232.png" alt="image-20250530095741232" style="zoom:40%;" />
+
+- cluster manager负责监控各个node实例的运行情况
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250530095401313.png" alt="image-20250530095401313" style="zoom:40%;" />
+
+```js
+const cluster = require('cluster')
+const express = require('express')
+
+if(cluster.isMaster) {
+  cluster.fork()
+} else {
+  const app = express()
+  app.listen(3000)
+}
+```
+
+- 理想情况下，node实例的数量 * 每个线程池中线程数量  = cpu 内核数量
 
 
 
@@ -326,54 +350,6 @@ app.post('/createvideo', async (req, res) => {
 
 
 
-
-### redis
-
-是一个**基于内存的键值存储数据库**，同时支持持久化，并提供多种数据结构（如字符串、哈希、列表、集合等）
-
-被广泛应用于缓存、消息队列、实时计算、排行榜等场景，因其高性能、低延迟而备受青睐
-
-数据主要存储在内存中，读写速度超快（10万+QPS）
-
-
-
-### QPS
-
-Queries per second **每秒查询数**是衡量系统（如数据库）每秒能处理的请求数量的性能指标
-
-例如：redis的qps是10万，表示每秒可处理10万次读写操作，评估系统的吞吐量和并发处理能力
-
-通过QPS推算服务器负载，觉得是否需要扩容，所需服务器数量 = 总QPS / 单机 QPS
-
-目标QPS为50万，单机Redis QPS为10万 --》 至少需要5台Redis实例
-
-
-
-
-
-### nginx
-
-- 在生产环境中，nodejs通常需要与nginx这样的web服务器配合使用
-
-```js
-客户端 --》 Nginx（负载均衡、SSL、静态文件） --》 多个Node.js实例
-```
-
-- nginx可以将流量分发到多个nodejs实例，提高应用程序的并发处理能力
-- nginx可以高效地提供静态文件，减少nodejs进程的负担
-- nginx反向代理，隐藏nodejs服务器的细节
-
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250522152550165.png" alt="image-20250522152550165" style="zoom:70%;" />
-
-- 正向代理
-
-![image-20250522152526438](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250522152526438.png)
-
-
-
-master主进程 ，接受各个客户端发来的请求，将其分配给子进程
-
- work子进程 
 
 
 
@@ -1988,13 +1964,13 @@ const hashedPassword = hash(salt + '用户密码')
 3、每次发送请求会将token携带上，后端检验token有效则返回数据
 
 ```js
-// 登录获得token
+// 前端登录获得token
 const handleLogin = async () => {
   const res = await fetch('/api/login', {
     method: 'POST',
     body: JSON.stringify({ username, password })
   })
-  const { token } = await response.json()
+  const { token } = await res.json()
   document.cookie = `authToken=${token}; Secure; HttpOnly; SameSite=Strict`
 }
 
@@ -2655,6 +2631,56 @@ app.use('/api/v1/tours', tourRouter)
 
 
 
+
+# 了解
+
+### redis
+
+是一个**基于内存的键值存储数据库**，同时支持持久化，并提供多种数据结构（如字符串、哈希、列表、集合等）
+
+被广泛应用于缓存、消息队列、实时计算、排行榜等场景，因其高性能、低延迟而备受青睐
+
+数据主要存储在内存中，读写速度超快（10万+QPS）
+
+
+
+### QPS
+
+Queries per second **每秒查询数**是衡量系统（如数据库）每秒能处理的请求数量的性能指标
+
+例如：redis的qps是10万，表示每秒可处理10万次读写操作，评估系统的吞吐量和并发处理能力
+
+通过QPS推算服务器负载，觉得是否需要扩容，所需服务器数量 = 总QPS / 单机 QPS
+
+目标QPS为50万，单机Redis QPS为10万 --》 至少需要5台Redis实例
+
+
+
+
+
+### nginx
+
+- 在生产环境中，nodejs通常需要与nginx这样的web服务器配合使用
+
+```js
+客户端 --》 Nginx（负载均衡、SSL、静态文件） --》 多个Node.js实例
+```
+
+- nginx可以将流量分发到多个nodejs实例，提高应用程序的并发处理能力
+- nginx可以高效地提供静态文件，减少nodejs进程的负担
+- nginx反向代理，隐藏nodejs服务器的细节
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250522152550165.png" alt="image-20250522152550165" style="zoom:70%;" />
+
+- 正向代理
+
+![image-20250522152526438](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250522152526438.png)
+
+
+
+master主进程 ，接受各个客户端发来的请求，将其分配给子进程
+
+ work子进程 
 
 
 

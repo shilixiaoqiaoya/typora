@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="wrapper">
+      <h1>websocket demo</h1>
+      <button type="submit" id="open_ws">open ws</button>
+      <div id="status">status: not connect</div>
+
+      <ul id="table"></ul>
+
+      <form id="form">
+        <textarea
+          id="message"
+          placeholder="write your message here"
+          required
+        ></textarea>
+        <button type="submit">send message</button>
+        <button id="close_ws">close connection</button>
+      </form>
+    </div>
+  </body>
+  <script>
+    let open_ws_btn = document.getElementById("open_ws");
+    let close_ws_btn = document.getElementById("close_ws");
+
+    let form = document.getElementById("form");
+    let socketStatus = document.getElementById("status");
+    let table = document.getElementsByTagName("ul")[0];
+    let message = document.getElementById("message");
+
+    open_ws_btn.addEventListener("click", () => {
+      // 建立连接btn
+      open_ws_btn.disabled = true;
+      open_ws_btn.style.background = "gray";
+      open_ws_btn.style.pointerEvents = "none";
+      open_ws_btn.textContent = "button disabled";
+
+      // 连接状态文案
+      socketStatus.innerHTML = "connecting";
+
+      let url = "ws://127.0.0.1:8080";
+      let socket = new WebSocket(url);
+
+      socket.onopen = (openEvt) => {
+        table.innerHTML = "";
+        socketStatus.innerHTML = `connected to ${openEvt.currentTarget.url}`;
+        socketStatus.className = "open";
+        form.className = "show";
+      };
+
+      socket.onmessage = (msg) => {};
+
+      socket.onclose = (closeEvt) => {
+        socketStatus.className = "closed";
+        table.innerHTML = "";
+        switch (closeEvt.code) {
+          case 1006:
+            socketStatus.innerHTML =
+              "something is wrong with network connection";
+            break;
+          case 1001:
+            socketStatus.innerHTML = `disconnected reason ${closeEvt.reason}`;
+            table.innerHTML = "";
+            break;
+          default:
+            socketStatus.innerHTML = "you disconnect by clicking close button";
+        }
+
+        form.classList.remove("show");
+        message.setAttribute("required", "true");
+        open_ws_btn.disabled = false;
+        open_ws_btn.style.background = "";
+        open_ws_btn.style.pointerEvents = "";
+        open_ws_btn.textContent = "open ws";
+      };
+
+      socket.onerror = (err) => {
+        socketStatus.innerHTML = "error";
+        socketStatus.className = "closed";
+      };
+
+      // 提交表单
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (socket.readyState === 1) {
+          let user_text = message.value;
+          socket.send(user_text);
+          table.innerHTML += `<span>${user_text}</span>`;
+          message.value = "";
+        }
+      });
+
+      // 点击close
+      close_ws_btn.addEventListener("click", () => {
+        socketStatus.innerHTML = "closing...";
+        socketStatus.classList.add("closing");
+        socket.close(1000, "i dont't like you");
+        message.removeAttribute("required");
+        form.classList.remove("show");
+      });
+    });
+  </script>
+</html>
