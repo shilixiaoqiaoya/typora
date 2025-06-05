@@ -180,6 +180,37 @@ if(cluster.isMaster) {
 
 
 
+#### v8引擎
+
+- 高级语言转换为机器码是针对不同cpu架构的，**【不同cpu架构对应的机器指令集是不同的】**
+
+```js
+int add(int a, int b) {
+    return a + b;
+}
+
+// x86机器码      汇编代码
+55               push rbp
+48 89 e5         mov rbp, rsp
+89 7d fc         mov [rbp-4], edi
+89 75 f8         mov [rbp-8], esi
+8b 55 fc         mov edx, [rbp-4]
+8b 45 f8         mov eax, [rbp-8]
+01 d0            add eax, edx
+5d               pop rbp
+c3               ret
+
+// arm64机器码   汇编代码
+00 00 80 D2     mov x0, #0
+20 00 80 D2     mov x1, #0
+00 00 01 8B     add x0, x0, x1
+C0 03 5F D6     ret
+```
+
+
+
+
+
 
 
 
