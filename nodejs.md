@@ -2632,6 +2632,234 @@ app.use('/api/v1/tours', tourRouter)
 
 
 
+
+
+# websocket
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250604142416260.png" alt="image-20250604142416260" style="zoom:40%;" />
+
+### ajax轮询
+
+- 在特定时间间隔由浏览器发出请求，服务器返回最新的数据
+  - HTTP请求一般包含的头部信息比较多，其中有效的数据可能只占很小的一部分，导致带宽浪费
+  - **服务器被动接收浏览器的请求然后响应，数据没有更新时仍然要接收并处理请求，服务器有压力**
+
+
+
+
+### websocket
+
+- **基于TCP的应用层协议**
+  - websocket的头部信息少，节省带宽
+  - websocket支持服务端主动推送消息，支持实时通信
+- 与HTTP协议有着良好的兼容性，默认端口也是80（ws）和443（wss）
+- websocket开始通信之前，通信双方先进行握手，**握手采用http协议，客户端通过http请求与websocket服务端协商升级协议，协议升级完成之后，后续数据交换遵照websocket协议**
+
+
+
+
+
+### readyState
+
+```text
+0：正在连接中，CONNECTING
+1: 已经连接，可以通讯，OPEN
+2: 连接正在关闭，CLOSING
+3: 连接已关闭，CLOSED
+```
+
+
+
+
+
+### 代码实现
+
+```js
+// node
+const Server = require('ws').Server
+const socket = new Server({ port: 3001 }, () => {
+  console.log('创建server')
+})
+socket.on('connection', ws => {
+  console.log('新用户连接')
+  ws.on('message', (data) => {
+    ws.send(`来自服务端推送的消息${String(data)}`)
+  })
+})
+
+// vue
+const ws = new WebSocket('http://127.0.0.1:3001')
+ws.onopen = () => {
+  ws.send('msg from client')
+  console.log('ws open')  
+}
+ws.onerror = () => {
+  console.log('ws error')
+}
+ws.onclose = () => {
+  console.log('ws close')
+}
+ws.onmessage = (data) => {
+  console.log(data)
+}
+```
+
+
+
+
+
+#### 类封装
+
+```js
+class Socket {
+  ModeCode = {
+    MSG: 'message', //普通消息
+    HEART_BEAT: 'heart_beat' // 心跳检测消息
+  }
+  heartBeat = {
+    time: 5 * 1000,  //心跳间隔时间
+    timeout: 3 * 1000,  //心跳超时时间
+    reconnectTime: 10 * 1000  // 断线重连时间
+  }
+  ws = null
+  webSocketState = false  // ws连接状态
+  reconnectTimer = null  
+  
+  constructor(wsUrl) {
+    this.wsUrl = wsUrl  
+  }
+  
+  initWebSocket() {
+    this.ws = new WebSocket(this.wsUrl)
+    
+    // 监听open
+    this.ws.onopen = () => {
+      console.log('ws open')
+      this.webSocketState = true
+      // 开启心跳检测
+      this.heartBeat && this.heartBeat.time ? this.startHeartBeat(this.heartBeat.time) : ''
+    }
+    
+    // 监听服务端消息
+    this.ws.onmessage = (msg) => {
+      const data = JSON.parse(msg.data)
+      switch(data.ModeCode) {
+        case this.ModeCode.MSG: 
+          console.log('普通消息')
+          break
+        case this.ModeCode.HEART_BEAT: 
+          console.log('心跳检测消息')
+          this.webSocketState = true
+          break
+      }
+    }
+    
+    this.ws.onclose = () => {
+      this.webSocketState = false
+    }
+    
+    this.ws.onerror = () => {
+      this.webSocketState = false
+      this.reconnect()
+  	}
+  }
+    
+  // 心跳检测
+  startHeartBeat(time) {
+    setTimeout(() => {
+      this.ws.send(JSON.stringify({
+        ModeCode: this.ModeCode.HEART_BEAT,
+        msg: Date.now()
+      }))
+      this.waitingServer()
+    }, time)
+  }
+
+  // 等待服务端pong
+  waitingServer() {
+    this.webSocketState = false
+    setTimeout(() => {
+      if(this.webSocketState) {
+        this.startHeartBeat(this.heartBeat.time)
+      } else {
+        this.ws.close()
+        this.reconnect()
+      }
+    }, this.heartBeat.timeout)
+  }
+
+  // 断线重连
+  reconnect() {
+    this.reconnectTimer = setTimeout(() => {
+        this.initWebSocket()
+        clearTimeout(this.reconnectTimer)
+    }, this.heartBeat.reconnectTime)
+  }
+}
+```
+
+
+
+
+
+### 心跳机制
+
+- **在一段时间内没有数据交互的连接可能会被自动断开，需要心跳机制维持长链接【保活】**
+
+  定时发送一个数据包，让对方知道自己在线且正常工作，确保通信有效
+
+- 发送方 --> 接收方：ping，Opcode为`0x9`，表示心跳请求
+
+- 接收方 --> 发送方：pong，Opcode为`0xA`，表示心跳响应
+
+```js
+const heartbeatInterval = 30 * 1000
+function sendHeartbeat() {
+  if(ws.redayState === WebSocket.OPEN) {
+    ws.send('ping')
+  }
+}
+
+const heartbeatTimer = setInterval(sendHeartbeat, heartbeatInterval)
+
+ws.onmessage = function(event) {
+  if(event.data === 'pong') {
+		...
+  }
+}
+  
+ws.onclose = function() {
+	clearInterval(heartbeatTimer)
+}
+```
+
+
+
+
+
+
+
+### 淘宝登录采用短轮询
+
+- 短轮询是一种兼容性好的通信方式；**websocket的兼容性存在一些限制**，老旧浏览器无法支持
+
+- 扫码登录场景不需要**实时性**非常高的数据更新，使用短轮询即可满足需求
+
+- websocket长连接会占用服务器资源，并且在高并发情况下导致服务器压力增大
+
+  **短轮询可以根据实际需求灵活控制数据请求的频率，可以更好地控制服务器端压力（二维码一定时间会失效，短轮询停止）**
+
+  - websocket建立了一个持久的双向通信连接
+  - websocket的长连接可能会导致服务器同时维护大量的连接数
+
+
+
+
+
+
+
+
+
 # 了解
 
 ### redis

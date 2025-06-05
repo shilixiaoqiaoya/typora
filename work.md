@@ -1367,6 +1367,22 @@ as unknown as AxiosRequestHeaders 双重类型断言，绕过ts的类型检查�
 
 
 
+为第三方库进行类型扩展
+
+```js
+declare module 'fabric' {
+  interface FabricObject {
+    isKeep?: boolean
+  }
+}
+```
+
+
+
+
+
+
+
 
 
 # socket
