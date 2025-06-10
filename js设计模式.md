@@ -216,6 +216,7 @@ class FakeStarFactory extends MobilePhoneFactory {
 
 - 一般地，针对一个类，每次实例化都会返回一个新的对象
 - **单例模式：不管类被实例化几次，返回的都是第一次实例化的对象**
+- **【避免内存泄漏】**
 
 ```js
 class SingleDog {
@@ -617,7 +618,5 @@ function askPrice(tag, originPrice) {
 
 
 
-
-
-## 迭代器模式
+ 
 

@@ -853,6 +853,37 @@ app.use(cors(corsOptions))
 
 
 
+#### 中间件调用实现
+
+```js
+function Pipeline(...middlewares) {
+  const stack = middlewares
+  
+  const push = (...middlewares) {
+    stack.push(...middlewares)
+  }
+  
+  const execute = async(req, res) {
+    let prevIndex = -1
+    const runner = async(index) {
+      if(index === prevIndex) {
+        throw new Error('next() called multiple times')
+      }
+      
+      prevIndex = index
+      const middleware = stack[index]
+      if(middleware) {
+        await middleware(req, res, () => {
+          return runner(index + 1)
+        })
+      }
+    }
+    await runner(0)
+  }
+  return { push, execute }
+}
+```
+
 
 
 

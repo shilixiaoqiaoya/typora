@@ -1339,15 +1339,17 @@ window.addEventListener('message', (event) => {
 
 # Typescript
 
+- 断言缩小类型
+
 ```ts
 const input = document.getElementById('input') as HTMLInputElement
 ```
 
+- as unknown as AxiosRequestHeaders 双重类型断言，绕过ts的类型检查，将对象强制转为目标类型
 
 
-定义变量时如果有赋值，会有类型推导，不必要加类型
 
-如果未赋值，有必要加类型
+- 定义变量时如果有赋值，会有类型推导，不必要加类型；如果未赋值，有必要加类型
 
 ```js
 let num = 1
@@ -1359,20 +1361,95 @@ num = 1
 
 
 
-
-
-as unknown as AxiosRequestHeaders 双重类型断言，绕过ts的类型检查，将对象强制转为目标类型
-
-
-
-
-
-为第三方库进行类型扩展
+- 为第三方库进行类型扩展
 
 ```js
 declare module 'fabric' {
   interface FabricObject {
     isKeep?: boolean
+  }
+}
+```
+
+
+
+- 字面量类型
+
+```js
+const request = { url: 'google.com', method: 'get' as 'get' }
+function handleReq(url:string, method: 'get' | 'post') {}
+handleReq(request.url, request.method)
+
+const request = { url: 'google.com', method: 'get'} as const
+function handleReq(url:string, method: 'get' | 'post') {}
+handleReq(request.url, request.method)
+```
+
+
+
+- 布尔化
+
+```js
+Boolean('hello') =>  true
+!!'hello' =>  true
+```
+
+
+
+```js
+let x = Math.random() < 0.5 ? 10 : 'hello'
+
+x = 1
+console.log(x)  // x类型为number
+
+x = 'good'
+console.log(x)  // x类型为string
+```
+
+
+
+- 自定义type guard
+
+```js
+interface Fish {
+  swim: () => void
+}
+interface Bird {
+  fly: () => void
+}
+
+type Animal = Fish | Bird
+function isFish(animal: Animal): animal is Fish {
+  return (animal as Fish).swim !== undefined
+}
+  
+function move(animal: Animal) {
+  if(isFish(animal)) {
+    animal.swim()
+  } else {
+    animal.fly()
+  }
+}
+```
+
+
+
+- never类型 
+  - **可以将never类型的值赋值给其他任意类型的值，不可以将其它类型的值赋值给never值**
+  - 作用：做全面性检查
+
+```js
+function isBird(animal: Animal): animal is Bird {
+  return (animal as Bird).fly !== undefined
+}
+
+function move(animal: Animal) {
+  if(isFish(animal)) {
+    animal.swim()
+  } else if(isBird(animal)){
+    animal.fly()
+  } else {
+    const _exhaustiveCheck: never = animal    // 此时animal为never类型，赋给_exhaustiveCheck变量不会报错，全面性检查通过
   }
 }
 ```
@@ -1527,36 +1604,51 @@ class SocketClient {
 
 # SSE
 
-- **Server-Sent Events** 是一种基于HTTP的服务器推送技术，允许服务器单向地向客户端实时推送数据
+- **Server-Sent Events 是一种基于HTTP的服务器推送技术，允许服务器单向地向客户端实时推送数据**
 
-- websocket是双向通信；SSE是单向通信，基于http协议
+- websocket是双向通信，是一个独立协议；SSE是单向通信，基于http协议
 - 原理
   - 客户端通过EventSource API发起连接
   - 服务端保持连接打开，通过HTTP流发送事件
   - 服务端可以随时推送数据，客户端接收并处理
 
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250517184622650.png" alt="image-20250517184622650" style="zoom:50%;" />
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250517184622650.png" alt="image-20250517184622650" style="zoom:40%;" />
+
+- 每一次发送的消息，由若干个message组成，每个message之间用`\n\n`分隔，每个message内部由若干行组成，每一行是如下格式
+
+```js
+[filed]: value\n
+
+field可取值：
+- data: 数据字段
+- event: 【自定义的事件类型】，默认是message事件，浏览器可以用addEventListener()监听该事件
+- id
+- retry
+```
+
+
 
 
 
 ### 前端
 
 ```js
-const eventSource = new EventSource('http_api_url')
+const msg = ref('')
 
-//连接建立
+const eventSource = new EventSource('http://localhost:8080/sse')
+// 连接建立
 eventSource.onopen = (event) => {
   console.log('连接建立')
 }
 
-//监听消息
+// 监听消息
 eventSource.onmessage = (event) => {
-  console.log('收到消息', event.data)
+  msg.value += event.data
 }
-
-// 监听特定事件类型
-eventSource.addEventListener('customEvent', (event) => {
-  console.log('自定义事件', event.data)
+ 
+// 自定义事件
+eventSource.addEventListener('close', (event) => {
+  eventSource.close()  // 关闭连接
 })
 
 // 错误处理
@@ -1565,33 +1657,42 @@ eventSource.onerror = (error) => {
 }
 ```
 
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250609144552700.png" alt="image-20250609144552700" style="zoom:50%;" />
+
 
 
 ### 后端
 
 ```js
 // express
-app.get('/sse-endpoint', (req, res) => {
-  // 设置sse相关头信息
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive'
-  })
-  
-  // 发送初始数据
-  res.write('连接已建立')
-  
-  // 定时推送数据
-  const timer = setInterval(() => {
-    res.write(`data: ${JSON.stringify({ time: new Date().toISOString() })}`)
-  }, 1000)
-  
-  // 客户端断开连接时
-  req.on('close', () => {
-    clearInterval(timer)
-    res.end()
-  })
+const http = require('http')
+http.createServer(function(req, res) {
+  if(req.url === '/sse') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      "Connection": 'keep-alive',
+      'access-control-allow-origin': '*'
+    })
+    
+    let counter = 0
+    const timer = setInterval(() => {
+      if(counter > 6) {
+        res.write(`event: close\n`)
+        res.write(`data: close\n\n`)
+        return 
+      }
+      res.write(`data: ${counter}\n\n`)
+      counter++
+    }, 100)
+    
+    res.on('close', () => {
+      clearInterval(timer)
+      console.log('client disconnect')
+    })
+  }
+}).listen(8080, () => {
+  console.log('running on port 8000')
 })
 ```
 
@@ -2401,6 +2502,47 @@ cursor-not-allowed  cursor-pointer
 
 
 
+### 黑暗模式
+
+```js
+.App {
+  transition: 0.2s
+}
+.App[color-mode='light'] {
+	--surface1: #e6e6e6;
+	--surface2: #f2f2f2;
+	--element1: #111;
+	--element2: #222;
+}
+.App[color-mode='dark'] {
+	--surface1: #262626;
+	--surface2: #333;
+	--element1: #eee;
+	--element2: #ddd;
+}
+
+function App() {
+	const [mode, setMode] = useState('light')
+  const handleClick = () => {
+    setMode(prev => prev === 'light' ? 'dark' : 'light')
+  }
+  
+  return {
+    <div className='App' color-mode={mode}>
+    	<button onClick={handleClick}>toggle</button>
+    </div>
+  }
+}
+```
+
+
+
+
+
+
+
+
+
 
 
 # 修改组件库样式
@@ -2819,6 +2961,89 @@ const compressImage = (base64, rate = 0.8) => {
   })
 }
 ```
+
+
+
+
+
+
+
+
+
+
+
+# 部署
+
+### 容器
+
+【容器采用沙箱机制，相互隔离】
+
+1、**容器是一种计算单元，介于进程和虚拟机之间，可以称为高度隔离的进程**
+
+- 相较于虚拟机应用部署方式，容器更加`【轻量化】`，启动迅速 
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250610181021927.png" alt="image-20250610181021927" style="zoom:40%;" />
+
+
+
+传统虚拟机：每个VM需要独立运行完整的Guest OS内核
+
+容器：所有容器共享Host OS内核，无需虚拟化整个操作系统，节省内存和CPU
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250610181307207.png" alt="image-20250610181307207" style="zoom:50%;" />
+
+ 
+
+2、容器是**一种应用的包装形式**`【自包含】`
+
+- 相较于虚拟机应用部署方式，容器包含运行应用的所有依赖，在开发、测试、生产环境高度一致，可部署在任意基础设施
+
+ 
+
+
+
+3、构建安全容器的两种解决方案
+
+![image-20250610215738799](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250610215738799.png)
+
+- **限制系统调用**
+- **独立内核**：在容器中添加内核（微内核 ： mini操作系统），容器与宿主机之间无直接系统调用，由内核和宿主机打交道
+
+
+
+
+
+### docker
+
+- **docker是一个容器管理平台**，解决软件跨环境迁移的问题
+- docker可以让开发者打包应用以及依赖包到一个轻量级、**可移植**的容器中
+
+- docker背后的复杂工作
+  - 应用包装、下载：docker image、dockerhub
+  - 创建容器运行环境：各种namespace
+  - 创建容器与外部的通信环境：NAT、iptables
+  - 管理容器生命周期
+
+
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250610214617311.png" alt="image-20250610214617311" style="zoom:50%;" />
+
+- **镜像image是一个只读的文件和文件夹组合，是可执行程序（可以从镜像仓库拉取别人制作好的镜像）**
+- 容器container是镜像的运行实体，一个镜像可以创建多个容器， 容器运行着真正的应用进程
+- 镜像仓库用来存储和分发Docker镜像
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250610205746769.png" alt="image-20250610205746769" style="zoom:50%;" />
+
+
+
+
+
+
+
+### pod
+
+- **是由多个容器组成的，包括1个主容器和n个辅助容器，pod是一种增强的容器**
+- pod的实现：多个容器共享一个或多个namespace。每个容器的自包含和便携性得以保存
 
 
 
