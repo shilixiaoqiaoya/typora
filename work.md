@@ -1458,6 +1458,42 @@ function move(animal: Animal) {
 
 
 
+- function type
+
+```js
+// 当函数有属性时
+interface DescribableFunction {
+  testAttr: string;
+  (a: number): string
+}
+function foo(fn: DescribableFunction) {
+  console.log(fn.testAttr + fn(6))
+}
+
+function bar(a: number) {
+  return `${a}`
+}
+bar.testAttr = 'testAttr'
+foo(bar)
+
+
+// 当函数作为构造函数使用时
+interface SomeConstructor {
+  new (s: string): SomeObject
+}
+function fn(ctor: SomeConstructor) {
+  return new ctor('hello')
+}
+```
+
+
+
+
+
+
+
+
+
 
 
 
