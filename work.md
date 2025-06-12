@@ -1451,6 +1451,7 @@ function move(animal: Animal) {
 - never类型 
   - **可以将never类型的值赋值给其他任意类型的值，不可以将其它类型的值赋值给never值**
   - 作用：做全面性检查
+  - **可以认为是「空集」，是所有类型的子集，可以赋值给其他类型**
 
 ```js
 function isBird(animal: Animal): animal is Bird {
@@ -1472,7 +1473,10 @@ function move(animal: Animal) {
 
 
 
-- unknown类型，和any类似，但是要比any更安全，保留了一些type check
+- unknown类型，和any类似，可以将其它任意类型的值赋值给unknown，但是要比any更安全，保留了一些type check
+  - **可以认为是「全集」, 包含所有类型，是所有类型的父集，所有类型都可以赋值给unknown**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250612111045405.png" alt="image-20250612111045405" style="zoom:50%;" />
 
 
 
@@ -1560,21 +1564,42 @@ function filter<Type, Func extends (arg: Type) => boolean>(
 
 
 
+- &：取交集
+
+```js
+type interA = 'A' | 'B'
+type interB = 'A' | 'C'
+type interC = interA & interB   // 'A'
+
+type Name = { name: string }
+type Age = { age: number }
+type Info = Name & Age  // { name: string, age: number }
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250612103651033.png" alt="image-20250612103651033" style="zoom:70%;" />
+
+```js
+interface A {
+  a: 1;
+}
+interface B {
+  b: 1;
+}
+const x: A | B = { a: 1 }; // succeeds
+const y: A | B = { b: 1 }; // succeeds
+const z: A | B = { a: 1, b: 1 }; // succeeds, assignable to overlap
 
 
-### 类型体操
-
-
-
-
-
-
-
-
-
-
-
-
+interface A {
+  a: 1;
+}
+interface B {
+  b: 1;
+}
+const x: A & B = { a: 1 }; // fails
+const y: A & B = { b: 1 }; // fails
+const z: A & B = { a: 1, b: 1 }; // succeeds
+```
 
 
 
