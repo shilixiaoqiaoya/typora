@@ -1349,6 +1349,8 @@ const input = document.getElementById('input') as HTMLInputElement
 
 
 
+
+
 - 定义变量时如果有赋值，会有类型推导，不必要加类型；如果未赋值，有必要加类型
 
 ```js
@@ -1361,6 +1363,8 @@ num = 1
 
 
 
+
+
 - 为第三方库进行类型扩展
 
 ```js
@@ -1370,6 +1374,8 @@ declare module 'fabric' {
   }
 }
 ```
+
+
 
 
 
@@ -1387,12 +1393,16 @@ handleReq(request.url, request.method)
 
 
 
+
+
 - 布尔化
 
 ```js
 Boolean('hello') =>  true
 !!'hello' =>  true
 ```
+
+
 
 
 
@@ -1405,6 +1415,8 @@ console.log(x)  // x类型为number
 x = 'good'
 console.log(x)  // x类型为string
 ```
+
+
 
 
 
@@ -1434,6 +1446,8 @@ function move(animal: Animal) {
 
 
 
+
+
 - never类型 
   - **可以将never类型的值赋值给其他任意类型的值，不可以将其它类型的值赋值给never值**
   - 作用：做全面性检查
@@ -1453,6 +1467,12 @@ function move(animal: Animal) {
   }
 }
 ```
+
+
+
+
+
+- unknown类型，和any类似，但是要比any更安全，保留了一些type check
 
 
 
@@ -1485,6 +1505,72 @@ function fn(ctor: SomeConstructor) {
   return new ctor('hello')
 }
 ```
+
+- 函数重载
+
+```js
+function makeDate(timestamp: number): Date
+function makeDate(m: number, d: number, y: number): Date
+
+function makeDate(mOrTimestamp: number, d?: number, y?:number): Date {
+  if(d !== undefined && y !== undefined) {
+    return new Date(y, mOrTimestamp, d)
+  } else {
+    return new Date(mOrTimestamp)
+  }
+}
+```
+
+- void返回值
+
+```js
+// 不会报错
+type voidFunc = () => void
+const fn: voidFunc = () => {
+  return true     
+}
+
+// 会报错
+function fn1(): void {
+  return true    
+}
+```
+
+
+
+
+
+- 泛型
+  - 原则：定义的泛型至少有2个地方使用，如果只有一处使用没必要定义泛型
+
+```js
+function filter<Type>(arr: Type[], func: (arg: Type) => boolean): Type[] {
+  return arr.filter(func)
+}
+
+function filter<Type, Func extends (arg: Type) => boolean>(
+  arr: Type[],
+  func: Func
+): Type[] {
+  return arr.filter(func)
+}
+```
+
+
+
+
+
+
+
+### 类型体操
+
+
+
+
+
+
+
+
 
 
 
