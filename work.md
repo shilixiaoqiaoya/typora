@@ -1337,6 +1337,31 @@ window.addEventListener('message', (event) => {
 
 
 
+### 模版字符串
+
+- 模版字符串在函数调用的场景中
+  - 第一个参数是所有静态内容的数组
+  - 第二个参数是动态内容的数组
+  - （第一个参数的数组长度比第二个参数的数组长度多1）
+
+```js
+function fn(strings, ...tags) {
+  console.log(strings)  // ['', ' is a ', '.']
+  console.log(tags)  // ['Mike', 20]
+}
+const person = 'Mike'
+const age = 20
+fn`${person} is a ${age}.`
+```
+
+
+
+
+
+
+
+
+
 # Typescript
 
 - 断言缩小类型
