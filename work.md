@@ -1,3 +1,21 @@
+```text
+优秀网址
+
+https://www.joshwcomeau.com/
+https://tkdodo.eu/blog/
+https://antfu.me/
+https://www.frontendjoy.com/
+https://roadmap.sh/
+https://www.patterns.dev/
+https://www.typescriptlang.org/docs/handbook/2/functions.html
+https://zh.javascript.info/
+https://nodejs.org/en/learn/getting-started/introduction-to-nodejs
+```
+
+
+
+
+
 css媒体查询如何实现 暗黑模式 
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250329120513517.png" alt="image-20250329120513517" style="zoom:30%;" />

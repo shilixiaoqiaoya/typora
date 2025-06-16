@@ -16,7 +16,9 @@ computed对应derived state???
 
 # The road to react
 
-单页面应用
+单页面应用： 一个index.html文件，一个超大的Js文件 
+
+prop 回调函数
 
 
 
