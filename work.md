@@ -1,10 +1,11 @@
-```text
+```js
 优秀网址
 
 https://www.joshwcomeau.com/
 https://tkdodo.eu/blog/
 https://antfu.me/
 https://www.frontendjoy.com/
+https://blog.isquaredsoftware.com/
 https://roadmap.sh/
 https://www.patterns.dev/
 https://www.typescriptlang.org/docs/handbook/2/functions.html
@@ -1304,6 +1305,31 @@ function handleGeneratePic() {
 }
 ```
 
+- 其中一个promise失败会导致promise.all()的状态是rejected，但是所有的promise都会被执行
+
+![image-20250619144004520](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250619144004520.png)
+
+```js
+const p1 = new Promise((resolve, reject) => {
+  setTimeout(() => {
+    resolve(111)
+    console.log('p1 done')   // 会被执行
+  }, 2000)
+})
+const p2 = new Promise((resolve, reject) => {
+  setTimeout(() => {
+     reject(222)
+  }, 1000)
+})
+Promise.all([p1, p2]).then(res => {
+  console.log(res)
+}).catch(err => {
+  console.log(err)
+})
+```
+
+- **【Promise.race()、Promise.any()也同理，所有promise都会被执行**】
+
 
 
 
@@ -1357,7 +1383,7 @@ window.addEventListener('message', (event) => {
 
 ### 模版字符串
 
-- 模版字符串在函数调用的场景中
+- 模版字符串在函数调用的场景中，下面代码为例
   - 第一个参数是所有静态内容的数组
   - 第二个参数是动态内容的数组
   - （第一个参数的数组长度比第二个参数的数组长度多1）
@@ -1376,11 +1402,60 @@ fn`${person} is a ${age}.`
 
 
 
+### setInterval
+
+```js
+setInterval(() => {
+  console.log('fn call')
+}, 1000)
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250619174616714.png" alt="image-20250619174616714" style="zoom:80%;" />
+
+- 用递归的setTimeout代替
+
+```js
+function fn() {
+  console.log('fn call')
+  setTimeout(fn, 1000)
+}
+setTimeout(fn, 1000)
+```
+
+![image-20250619174908469](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250619174908469.png)
+
+
+
+
+
+
+
+
+
 
 
 
 
 # Typescript
+
+```text
+@types是DefinitelyTyped项目下的一个命名空间，专门用于存放Typescript类型定义文件（.d.ts文件）
+当js库本身没有内置类型，@types提供第三方类型支持，让这些库在ts项目中获得类型检查和代码提示
+
+@types/node是为nodejs核心模块提供的typescript类型定义
+```
+
+- **在高版本的node中，可以通过命令行选项直接运行ts文件，甚至不需要命令行选项就能运行**
+
+```js
+node --experimental-strip-types example.ts
+```
+
+
+
+
+
+
 
 - 断言缩小类型
 
@@ -1648,6 +1723,25 @@ const z: A & B = { a: 1, b: 1 }; // succeeds
 
 
 
+- String & {}
+
+```js
+string & {} 结果是string
+- {}在ts中表示任何非null和非undefined的值，即任何可以访问属性的值
+- string是对象包装器（String对象）的原始值，可以访问属性（如length）
+- string是{}的子集
+
+// 应用
+type ModelNames = 'gpt-4o' | 'o3-mini' | 'claude-sonnet-3.7' | string
+type ModelNames = 'gpt-4o' | 'o3-mini' | 'claude-sonnet-3.7' | (string & {})
+const model: ModelNames = 'awdfdd'  // 第一种方式，model是string类型，没有很好的代码提示
+// 第二种，此时model可以得到很好的代码提示
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250617095840080.png" alt="image-20250617095840080" style="zoom:50%;" />
+
+
+
 
 
 
@@ -1908,8 +2002,8 @@ http.createServer(function(req, res) {
 
 - **Window对象提供了一个只读属性：`customElements`可以注册一个自定义元素**
 
-- **shadow dom**：将一个shadow dom 附加到自定义元素上，使用通用的dom方法向shadow dom中添加子元素、事件监听等；与主文档分开呈现，保持自定义元素的功能私有
-- HTML template标签：元素内容不会被渲染
+- **shadow dom**：将一个shadow dom 附加到自定义元素上，使用通用的dom方法向shadow dom中添加子元素、事件监听等；**与主文档隔离，保持自定义元素的功能私有**
+- **HTML template标签**：元素内容不会被渲染
 
 - 生命周期
 
@@ -1918,30 +2012,37 @@ http.createServer(function(req, res) {
   - disconnectCallback：元素从dom移除时调用
 
   - attributeChangedCallback：元素属性变化时调用
+- `:host`指的是包含shadow树的元素
 
 ```js
 // 定义
 <template id="hw-template">
   <style>
-  	p {
-      color: green;
-      font-size: 20px;
+  	:host([type='primary']) button{
+      background-color: green;
+    }
+    :host([type='error']) button{
+      background-color: red;
     }
   </style>
-  <p>hello world</p>
+  <button>btn</button>
+	<script>
+    ...
+  </script>
 </template>
+
 <script>
   class HelloWorld extends HTMLElement {
     constructor() {
       super()
       // 获得组件的模板内容
-      const templateContent = document.querySelector('#hw-template').content
+      const templateEl = document.querySelector('#hw-template')
 
       // 创建shadow dom
-      const shadowRoot = this.attachShadow({ mode: 'open' })
+      this.attachShadow({ mode: 'open' })
 
       // 将模版内容添加到shadow dom
-      shadowRoot.appendChild(templateContent.cloneNode(true))
+      this.shadowRoot.appendChild(templateEl.content.cloneNode(true))
       
       // 获取传递的属性
       const msg = this.getAttribute('message')  
@@ -1956,10 +2057,11 @@ http.createServer(function(req, res) {
 </script>
 
 // 使用
-<hello-world>Hi</hello-world>
+<hello-world type="primary"></hello-world>
+<hello-world type="error"></hello-world>
 ```
 
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250527114147847.png" alt="image-20250527114147847" style="zoom:100%;" />
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250617094946610.png" alt="image-20250617094946610" style="zoom:53%;" />
 
 - attachShadow()，mode参数
   - open: 可以从外部访问shadow dom

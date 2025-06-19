@@ -485,7 +485,9 @@ doHash()
 
 
 
+![image-20250619110105368](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250619110105368.png)
 
+![image-20250619110130467](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250619110130467.png)
 
 #### 单线程 single thread 
 
@@ -579,7 +581,7 @@ crypto.pbkdf2('a', 'b', 100000, 512, 'sha512', () => {
 - 一次tick分为四个阶段
   - timers: setTimeout、setInterval
   - IO：网络IO、文件IO
-  - setImmediate
+  - check阶段：setImmediate
   - close callback
 - 两个特殊的阶段：NextTick()和微任务队列
   - 这两个队列中若有回调要执行，会直接在当前阶段后立即执行，不需要等四个阶段全部执行完
@@ -587,6 +589,49 @@ crypto.pbkdf2('a', 'b', 100000, 512, 'sha512', () => {
 - **node.js进程会在事件循环为空时自动退出，无需显式调用exit()**
 
 
+
+- queueMicrotask()
+  - **执行的脚本（同步代码）结束后立即执行**
+  - 在I/O事件和timer之前运行
+  - 比如：promise的then/catch/finally、queueMicrotask()显式调度的任务
+
+![image-20250619162813797](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250619162813797.png)
+
+- process.nextTick()
+  - **将回调函数调度到当前操作完成后立即执行**
+  - note: 不要滥用，过多的nexttick会导致事件循环饥饿，因为微任务队列永远清不完，阻塞了其他的任务
+
+![image-20250619162839221](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250619162839221.png)
+
+- setImmediate()
+
+  - **在I/O回调内部**，setImmediate会在当前事件循环的check阶段执行，而setTimeout会在下一轮循环的timer阶段执行
+
+  ```js
+  fs.readFile('xx.txt', () => {
+    setTimeout(() => console.log('timeout'), 0)
+    setImmediate(() =>  console.log('Immediate'))
+  })
+  
+  // Immediate  timeout
+  ```
+
+  - 在主模块中直接调用
+
+  ```js
+  setTimeout(() => console.log('timeout'), 0)
+  setImmediate(() =>  console.log('Immediate'))
+  
+  // 输出顺序不确定，当事件循环启动时，timers阶段可能未准备好，取决于cpu时钟精度
+  ```
+
+  - 使用场景
+
+    - 如果需要在I/O操作后立即执行且优先级高于定时器，用setImmediate
+
+    - 如果需要确保在下一个事件循环的最早时机执行，用setTimeout
+
+![image-20250619162857398](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250619162857398.png)
 
 
 
@@ -1321,6 +1366,45 @@ app.post('/api/data', (req, res) => {
 
 
 
+
+
+
+#### WebAssembly
+
+- 全局内置对象WebAssembly
+
+```js
+console.log(WebAssembly)
+
+//Object [WebAssembly] {
+//  compile: [Function: compile],
+//  validate: [Function: validate],
+//  instantiate: [Function: instantiate],
+//  compileStreaming: [Function: compileStreaming],
+//  instantiateStreaming: [Function: instantiateStreaming]
+//}
+
+const fs = require('fs')
+const wasmBuffer = fs.readFileSync('add.wasm')
+WebAssembly.instantiate(wasmBuffer).then(res => {
+  console.log(res)
+  const { add } = res.instance.exports
+  console.log(add(3, 5))
+})
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250617201246281.png" alt="image-20250617201246281" style="zoom:53%;" />
+
+
+
+
+
+
+
+#### fetch
+
+- 在nodejs18之前，默认不提供fetch，需要通过第三方库实现(node-fetch)
+- **nodejs18+，内置了fetch，底层是基于Undici实现**
 
 
 
@@ -2714,7 +2798,9 @@ app.use('/api/v1/tours', tourRouter)
 - **基于TCP的应用层协议**
   - websocket的头部信息少，节省带宽
   - websocket支持服务端主动推送消息，支持实时通信
-- 与HTTP协议有着良好的兼容性，默认端口也是80（ws）和443（wss）
+- 与HTTP协议有着良好的兼容性，默认端口也是80（ws）和443（wss），有助于绕过防火墙限制
+  - **防火墙默认策略：企业/公共网络通常仅允许80/443端口的出站流量，阻止其它端口**
+
 - websocket开始通信之前，通信双方先进行握手，**握手采用http协议，客户端通过http请求与websocket服务端协商升级协议，协议升级完成之后，后续数据交换遵照websocket协议**
 
 
