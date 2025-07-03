@@ -1434,6 +1434,37 @@ setTimeout(fn, 1000)
 
 
 
+### 拖拽
+
+- 面板，绝对定位(0,0)
+
+```js
+.panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+ 	transform: translate3d(1920px, 1080px, 0)
+}
+```
+
+- **transform不会影响文档流，只是视觉上的移动，元素在DOM中原本的位置不变**
+
+```js
+// 开始按下，获取鼠标相对于面板的offsetX/offsetY
+const rect = panel.getBoundingClientRect()
+const offsetX = e.clientX - rect.left
+const offsetY = e.clientY - rect.top
+
+// 移动过程中,获取面板左上角的新位置
+const newX = e.clientX - offsetX
+const newY = e.clientY - offsetY
+
+// 根据新位置移动
+panel.style = `transform: translate3d(${newX}px, ${newY}px, 0)`
+```
+
+
+
 
 
 
