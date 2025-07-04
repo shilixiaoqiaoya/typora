@@ -13,6 +13,7 @@ https://zh.javascript.info/
 https://nodejs.org/en/learn/getting-started/introduction-to-nodejs
 https://objtube.github.io/front-end-roadmap/#/
 https://web.dev/learn/performance/welcome?hl=zh-cn
+https://tsejx.github.io/javascript-guidebook/
 
 
 // 随机图片
