@@ -2480,6 +2480,9 @@ rounded-full     // 用于img标签上
   
 // 元素不响应点击事件
 pointer-events: none
+
+// inline-flex
+inline-flex会让元素成为行内flex容器，宽度由内容决定
 ```
 
 
@@ -2534,6 +2537,16 @@ pointer-events: none
 - **为什么产生滚动？内容长度超出容器，且overflow为auto**
 - *【给哪个元素设置overflow-auto，哪个元素会滚动】*
 - **overflow设置为auto而不是scroll**，因为滚动条会占位置可能出现样式错乱的问题
+
+----
+
+positive的relative的容器产生滚动时，内部的absolute元素会跟随滚动内容一起滚动
+
+可以将容器改为overflow-hidden，在容器中滚动内容外包裹一层可滚动的div
+
+--------
+
+
 
 
 
@@ -2866,6 +2879,22 @@ function App() {
 ```
 
 
+
+
+
+### transform
+
+- 只改变视觉效果，不改变布局空间
+
+```js
+<div :style="{'--scale': layoutScale}"></div>
+.close-btn {
+  top: calc(-4px * var(--scale));
+  right: calc(-4px * var(--scale));
+  width: calc(20px * var(--scale));
+  height: calc(20px * var(--scale));
+}
+```
 
 
 
