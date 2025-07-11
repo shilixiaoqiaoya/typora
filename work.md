@@ -2902,6 +2902,46 @@ function App() {
 
 
 
+### devicePixelRatio
+
+- **设备物理像素与CSS像素的比值**
+- 设为3，表面1个css像素占3 * 3个物理像素
+- **在不同dpr设备上，元素的视觉大小一致，dpr越高，1个css像素占的物理像素越高，物理像素越密集，越清晰**
+
+```js
+.element {
+  width: 100px
+  // A电脑dpr为1，在A电脑占用100物理像素
+  // B电脑dpr为2，在B电脑占用200物理像素
+}
+```
+
+- dpr为3的设备上，图片设为100 * 100px, 实际用来显示内容的区域是物理像素300 * 300个
+
+```js
+htmlToImage.toPng(element, {
+  poxelRatio: 1, // 生成物理像素为100*100的图片
+  width: 100,
+  height: 100
+})
+// 图片需被拉伸，模糊、锯齿、细节丢失
+
+htmlToImage.toPng(element, {
+  pixelRatio: window.devicePixelRatio, // 生成物理像素为300*300的图片
+  width: 100,
+  height: 100
+})
+// 图片以原始尺寸显示，无需缩放，清晰、锐利、细节完整
+```
+
+
+
+
+
+
+
+
+
 
 
 # 修改组件库样式
