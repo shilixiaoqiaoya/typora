@@ -3289,7 +3289,9 @@ const handleFileChange = async (event: any) => {
 
 ### 图片压缩
 
-- 利用canvas.toDataURL()实现有损压缩，适合照片类图片
+- **利用canvas.toDataURL()实现有损压缩，适合照片类图片**
+  - 结果是base64字符串，可以直接用于img.src
+
 
 ```js
 const compressImage = (base64, rate = 0.8) {
@@ -3323,8 +3325,9 @@ const compressImage = (base64, rate = 0.8) {
 }
 ```
 
-- 利用canvas.toBlob实现图片压缩【推荐】
-  - 直接操作二进制数据，避免了base64编码的性能开销
+- **利用canvas.toBlob实现图片压缩【推荐】**
+  - 结果是二进制的blob对象，不可直接用于img.src
+  - 和`URL.createObjectURL(blob)`结合使用，才可用于img.src
 
 ```js
 const compressImage = (base64, rate = 0.8) => {
@@ -3363,6 +3366,97 @@ const compressImage = (base64, rate = 0.8) => {
 ```
 
 
+
+
+
+
+
+# 截图
+
+### 利用canvas
+
+- 将目标dom节点绘制到canvas画布
+  - 例如，img标签可以使用drawImage方法
+- canvas画布以图片形式导出
+  - 利用canvas的toDataURL方法实现画布内容的导出
+    - 结果是base64字符串，它包含了图片的所有像素信息（只要有这个字符串，就能还原出来原图）
+  - canvas.toBlob + `URL.createObjectURL(blob)`结合使用
+
+
+
+
+
+### 内容完整性
+
+1、对于跨域图片，可以采取服务端转发的方式，绕过跨域限制
+
+- 服务端将图片资源下载
+- 假设请求地址`/api/redirect/image`，传入图片地址参数`redirect`
+
+```js
+const Koa = require('koa')
+const router = require('koa-router')()
+const querystring = require('querystring')
+const app = new Koa()
+app.use(router.routes())
+
+router.get('/api/redirect/image'， async function(ctx) {
+  const querys = ctx.querystring()
+  const { redirect } = querystring.parse(querys)
+  const res = await proxyFetchImage(redirect)
+  ctx.set('Content-Type', 'image/png')
+	ctx.response.body = res
+})
+
+async function proxyFetchImage(url) {
+  const res = await fetch(url)
+  return res.body
+}
+```
+
+
+
+2、对图片资源做加载请求时，可能加载失败
+
+- 提前利用图片url转为本地的base64字符串或blob对象
+
+
+
+
+
+### 清晰度优化
+
+- 问题：在高分辨率的屏幕下，canvas默认会显得很模糊
+- 解决：根据dpr，来创建canvas，用css将画布缩回原来的显示尺寸【配置高倍的canvas画布】
+  - 假如dpr为3，100 * 100px的canvas画布，会先绘制300 * 300px的画布，后续缩小
+
+```js
+<canvas id='myCanvas' style='width:300px;height:150px'></canvas>
+
+const canvas = document.getElementById('myCanvas')
+const ctx = canvas.getContext('2d')
+// 获取dpr
+const dpr = 2
+// 设置画布实际像素大小
+canvas.width = 100 * dpr
+canvas.height = 100 * dpr
+// 用css控制画布显示大小
+canvas.style.width = '100px'
+canvas.style.height = '100px'
+// 缩放绘图操作
+ctx.scale(dpr, dpr)
+
+ctx.fillStyle = "red";
+ctx.fillRect(50, 50, 50, 50);
+```
+
+- **ctx.scale()方法会把后续所有的绘图操作都按指定倍数进行缩放**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250717143556652.png" alt="image-20250717143556652" style="zoom:50%;" />
+
+- 如果注释这行代码，canvas会变成
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250717143701941.png" alt="image-20250717143701941" style="zoom:50%;" />
 
 
 
