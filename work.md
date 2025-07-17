@@ -1055,6 +1055,7 @@ const formatDate = (date) => {
 - 部分css属性不支持，比如波浪线和虚线
 - useCORS设为true，可以通过http请求获取图片
 - Scale
+- **在产生滚动行为的div内再包裹一个div，可以截取整个滚动元素，而不只是可视区域内**
 
 
 
@@ -3291,6 +3292,8 @@ const handleFileChange = async (event: any) => {
 
 - **利用canvas.toDataURL()实现有损压缩，适合照片类图片**
   - 结果是base64字符串，可以直接用于img.src
+  - base64是「二进制数据」转换为「由字母、数字和特殊字符组成的字符串」
+  - base64的大小约为原图大小的 4/3
 
 
 ```js
