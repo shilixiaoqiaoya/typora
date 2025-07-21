@@ -1571,7 +1571,7 @@ componentDidMount() {
 - **返回值：数组，包含两个元素**
   - **元素一：当前状态的值**
   - **元素二：设置状态值的函数**
-- **【一般来说，在函数退出后变量就会消失，而state中的变量会被React保留】**
+- **【state不同于在函数返回之后就会消失的普通变量，state活在React本身中——位于函数之外】**
 
 ```jsx
 import React, { useState } from 'react'
@@ -1819,6 +1819,108 @@ export function useKey(key, action) {
 
 
 ### useState()
+
+- **【每次渲染都会生成一张state的快照】**
+  - props、事件处理函数、内部变量都是根据当前渲染时的state计算出来的
+
+```js
+export default function CounterHook() {
+  const [count, setCount] = useState(0)
+  
+  return (
+    <div>
+      <h2>当前计数：{count}</h2>
+      <button onClick={e => {
+				setCount(count + 1)
+        setCount(count + 1)
+        setCount(count + 1)
+			}
+  		>+1</button>
+    </div>
+  )
+}
+
+// 每次递增state只会递增1,设置state会使得下一次渲染时state增1，在本次渲染中state一直是0
+// setCount(0 + 1)
+// setCount(0 + 1)
+// setCount(0 + 1)
+// 【React会等到事件处理函数中的所有代码都运行完毕再处理state更新（批处理）】
+```
+
+- **异步事件处理函数也是根据那次渲染的state计算出来的**
+
+```js
+export default function CounterHook() {
+  const [count, setCount] = useState(0)
+  
+  return (
+    <div>
+      <h2>当前计数：{count}</h2>
+      <button onClick={e => {
+				setCount(count + 1)
+        setTimeout(() => {
+          alert(count)
+        }, 3000)
+			}
+  		>按钮</button>
+    </div>
+  )
+}
+// 点击按钮，组件会重新渲染，三秒后alert的值为上次渲染时state的快照
+```
+
+- **在下次渲染前多次更新同一个state** 
+  - `count => count + 1`称为更新函数，React会将此函数加入队列
+  - *【在下一次渲染前，React会遍历队列并给到更新之后的最终state】*
+
+```js
+export default function CounterHook() {
+  const [count, setCount] = useState(0)
+  
+  return (
+    <div>
+      <h2>当前计数：{count}</h2>
+      <button onClick={e => {
+				setCount(count => count + 1)
+        setCount(count => count + 1)
+        setCount(count => count + 1)
+			}
+  		>+3</button>
+    </div>
+  )
+}
+```
+
+- 两种结合的方式
+
+```js
+export default function CounterHook() {
+  const [count, setCount] = useState(0)
+  
+  return (
+    <div>
+      <h2>当前计数：{count}</h2>
+      <button onClick={e => {
+				setCount(count + 5)
+        setCount(count => count + 1)
+			}
+  		>按钮</button>
+    </div>
+  )
+}
+// 加6
+```
+
+
+
+- react中所有state都是不可直接修改的，**将state视为只读的**
+- state存放对象时，直接修改对象并不会触发重渲染，并会改变上次渲染快照中state值
+  - **为了触发一次重新渲染，需要创建一个新对象并将它传递给state的设置函数**
+- 可以使用第三方库Immer，很方便
+
+
+
+
 
 
 
