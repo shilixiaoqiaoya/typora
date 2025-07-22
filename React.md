@@ -51,7 +51,7 @@ prop 回调函数
 
 ### component composition
 
-- 利用children prop的特性
+- **利用children prop的特性**
 - 封装高复用性和灵活的组件
 
 ```js
@@ -225,9 +225,8 @@ function Test() {
 # **React**
 
 - **声明式编程**
-
   - 只需要维护自己的状态，当状态改变时，React可以根据最新的状态去渲染UI
-
+  
 - **多平台适配**
 
 
@@ -1922,6 +1921,93 @@ export default function CounterHook() {
 
 
 
+### 状态提升
+
+- 实现两个面板显示隐藏的互斥
+- **【关键：将状态移至公共父组件】**
+
+```js
+function Panel({ children, isActive, fn }) {
+  return (
+  	<section>
+    	{isActive ? (<p>{children}</p>) : (<button onClick={fn}>显示</button>)}
+    </section>
+  )
+}
+function Accordion() {
+  const [activeId, setActiveId] = useState(0)
+  return (
+  	<>
+    	<Panel isActive={activeId === 0} fn={() => setActiveId(0)}></Panel>
+    	<Panel isActive={activeId === 1} fn={() => setActiveId(1)}></Panel>
+    </>
+  )
+}
+```
+
+
+
+
+
+
+
+### *状态与渲染树中的位置相关*
+
+- 当向一个组件添加状态时，这个状态是由React保存的，**React通过组件在渲染树中的位置将它保存的每个状态与正确的组件关联起来**
+- **「UI树中相同位置的相同组件会使得组件内部state被保留下来」**
+
+```js
+function App() {
+  const [isFancy, setIsFancy] = useState(false)
+  return (
+  	<div>
+    	{isFancy ? (<Counter beauty={true} />) : (<Counter beauty={false} />)}
+			<label>
+    		<input type='checkbox' checked={isFancy} onChange={e => setIsFancy(e.target.checked)}/>
+				使用好看样式
+			</label>
+    </div>
+  )
+}
+function Counter({beauty}) {
+  const [score, setScore] = useState(0)
+  const [hover, setHover] = useState(false)
+  let className = 'counter'
+  if(hover) {
+    className += 'hover'
+  }
+  if(beauty) {
+    className += 'beauty'
+  }
+  return (
+    <div
+    	className={className}
+			onPointerEnter={() => setHover(true)}
+      onPointerLeave={() => setHover(false)}
+    	>
+        <h1>{score}</h1>
+				<button onClick={() => setScore(score+1)}>+1</button>
+    </div>
+  )
+}
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250722143325818.png" alt="image-20250722143325818" style="zoom:43%;" />
+
+- 在反复勾选checkbox时，state是不会被重置的
+  - 无论isFancy值是什么，根组件的第一个子组件都是Counter组件，state会被保留
+- **『如果不想在两个Counter组件之间共享state，需要给组件添加key』**
+
+```js
+{isFancy ? (<Counter key='one' beauty={true} />) : (<Counter key='two' beauty={false} />)}
+```
+
+
+
+
+
+
+
 
 
 ### useRef()
@@ -1930,13 +2016,16 @@ export default function CounterHook() {
 
 ### useReducer()
 
-- **【管理状态的另一种方式，适用于状态之间相互依赖 、有关联的场景】**
+- **管理状态的另一种方式，适用于状态之间相互依赖 、有关联的场景**
 - 将所有状态更新逻辑集中在一个位置 ，与组件逻辑解耦
-- **reducer要求是纯函数，不可以写网络请求的逻辑或其它副作用逻辑**
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250412130911729.png" alt="image-20250412130911729" style="zoom:40%;" />
 
-- **reducer函数必须返回state，不可以返回null或undefined等**
+- 通过事件处理函数 dispatch action
+- 编写一个reducer函数，它接受传入的state和一个action，并返回一个新的state
+  - reducer函数**必须返回state**，不可以返回null或undefined等
+  - reducer必须是**纯函数**，不可以产生副作用
+
 
 ```js
 function reducer(state, action) {
@@ -1975,6 +2064,12 @@ function DateCounter() {
   }
 }
 ```
+
+- 可以使用**`useImmerReducer`**，Immer会基于当前state创建一个副本，可以直接修改副本
+
+
+
+
 
 
 
@@ -2015,6 +2110,7 @@ case 'tick':
 ### Context API
 
 - **React内置的跨组件数据共享方案，可以解决props drilling（属性透传）问题**
+- context允许父组件将一些信息提供给它下层的任何组件，不管该组件多深层也无需通过props逐层透传
 - createContext()、useContext()
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250413114700931.png" alt="image-20250413114700931" style="zoom:40%;" />
