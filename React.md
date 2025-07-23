@@ -2110,7 +2110,7 @@ case 'tick':
 ### Context API
 
 - **React内置的跨组件数据共享方案，可以解决props drilling（属性透传）问题**
-- context允许父组件将一些信息提供给它下层的任何组件，不管该组件多深层也无需通过props逐层透传
+- context允许UI树中父组件将一些信息提供给它下层的任何组件，不管该组件多深层也无需通过props逐层透传
 - createContext()、useContext()
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250413114700931.png" alt="image-20250413114700931" style="zoom:40%;" />
@@ -2120,21 +2120,13 @@ case 'tick':
   const QueryContext = createContext()
   
   // 2、父组件提供数据
-  <QueryContext.Provider
-  	value = {{
-             searchQuery,
-             setSearchQuery
-            }}
-  >
+  <QueryContext value={{searchQuery, setSearchQuery}}>
     ...
-  	...
-  </QueryContext.Provider>
+  </QueryContext>
   
   // 3、后代组件消费数据
   const {searchQuery, setSearchQuery} = useContext(QueryContext)
   ```
-
-
 
 - 将父组件中的「context逻辑」和「状态和状态更新 逻辑」进行抽离
 
@@ -2144,17 +2136,12 @@ const QueryContext = createContext()
 
 // 2、对Provider二次封装
 function QueryProvider({ children }) {
-  
   // state和event handlers等逻辑......
-  
   return (
-  	<QueryContext.Provider value = {{
-           searchQuery,
-           setSearchQuery
-          }}
+  	<QueryContext value={{searchQuery, setSearchQuery}}
     >
     	{children}
-    </QueryContext.Provider>
+    </QueryContext>
   )
 }
 
@@ -2165,10 +2152,16 @@ function useQuery() {
   return context
 }
 
-export {QueryProvider, useQuery}
+export { QueryProvider, useQuery }
 ```
 
 
+
+- 使用场景
+  - 主题
+  - 当前登录的用户信息
+  - 路由
+  - 状态管理
 
   
 
@@ -2206,15 +2199,9 @@ function AuthProvider({ children }) {
   function logout() dispatch({type: 'logout'})
  
   return (
-  	<AuthContext.Provider value = {{
-          	user,
-            isValid,
-            login,
-            logout
-          }}
-    >
+  	<AuthContext value={{user, isValid, login, logout}}>
     	{children}
-    </AuthContext.Provider>
+    </AuthContext>
   )
 }
 function useAuth() {
