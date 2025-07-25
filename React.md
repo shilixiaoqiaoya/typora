@@ -2012,6 +2012,37 @@ function Counter({beauty}) {
 
 ### useRef()
 
+- **当希望组件记住某些信息，但又不想让这些信息触发新的渲染时，可以使用ref**
+
+```js
+const ref = useRef(0)
+```
+
+- useRef()的返回值是一个对象，有一个**current属性**，current属性可以被读取和修改
+  - 在current属性被修改时，不会触发重新渲染
+
+- 内部实现：
+
+```js
+function useRef(initialValue) {
+  const [ref, unused] = useState({ current: initialValue })
+  return ref
+}
+```
+
+- 使用场景
+  - 存储 timeout ID
+  - 存储 DOM 元素，用于非破坏性操作，比如聚焦、滚动或测量元素
+  - 存储不影响渲染逻辑的值
+- state是每次渲染的快照，不会同步更新；当改变 ref 的 current 值时，它会立即改变
+- 将ref传给子组件时，ref绑定情况？？？
+
+
+
+
+
+
+
 
 
 ### useReducer()
