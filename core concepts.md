@@ -119,6 +119,8 @@ const fd = fs.openSync('test.txt', 'r')
 console.log('文件描述符', fd)
 ```
 
+- 打开一个文件时，发生了什么？并没有将整个文件放入内存
+
 
 
 - 三种代码编写方式：**promises API**、callback API、synchronous API
@@ -150,13 +152,58 @@ fs.copyFileSync('file.txt', 'copied-sync.txt')
 ### 实践
 
 - `.js`文件监听`.txt` 文件的变化，`.txt` 文件内容是一些命令，比如创建文件、修改文件、删除文件
-- `.js`文件逻辑
+- `.js`文件执行相应逻辑：创建文件、修改文件、删除文件
 
 ```js
 const fs = require('fs/promises')
 
 (async () => {
-  // 打开文件
+  // 创建文件
+  const CREATE_FILE = 'create a file'
+  async function createFile(path) {
+    let fileHandle
+    try {
+      fileHandle = await fs.open(path, 'r')
+    } catch(err) {
+      fileHandle = await fs.open(path, 'w')
+    }
+    fileHandle.close()
+  }
+  
+  // 删除文件
+  const DELETE_FILE = 'delete the file'
+  async function deleteFile(path) {
+     try {
+       await fs.unlink(path)
+     } catch(err) {
+       console.error(err)
+     }
+  }
+  
+  // 重命名文件
+  const RENAME_FILE = 'rename the file'
+  async function renameFile(oldPath, newPath) {
+    try {
+      await fs.rename(oldPath, newPath)
+    } catch(err) {
+      console.error(err)
+    }
+  }
+  
+  // 向文件添加内容
+  const ADD_TO_FILE = 'add to the file'
+  async function addToFile(path, content) {
+    try {
+      const fileHandle = await fs.open(path, 'a')
+      fileHandle.write(content)
+      fileHandle.close()
+    } catch(err) {
+      console.error(err)
+    }
+  }
+  
+  
+  // 打开.txt文件
   const fd = await fs.open('./command.txt', 'r')
   
   fd.on('change', async () => {
@@ -165,9 +212,38 @@ const fs = require('fs/promises')
     // 分配大小适合的缓存区,避免内存浪费
     const buff = Buffer.alloc(fileSize)
     // 将文件内容放入缓冲区
-    await fd.read(buff)
+    await fd.read(buff, 0, fileSize, 0)
     // 对二进制数据解码
-    console.log(buff.toString())
+    const command = buff.toString()
+    
+    // 创建文件
+    if(command.includes(CREATE_FILE)) {
+      const filePath = command.substring(CREATE_FILE.length + 1)
+      createFile(filePath)
+    }
+    
+    // 删除文件
+    if(command.includes(DELETE_FILE)) {
+       const filePath = command.substring(DELETE_FILE.length + 1)
+       deleteFile(filePath)
+    }
+    
+    // 重命名文件
+    if(command.includes(RENAME_FILE)) {
+       const _idx = command.indexOf(' to ')
+       const oldFilePath = command.substring(RENAME_FILE.length + 1, _idx)
+       const newFilePath = command.substring(_idx + 4)
+       renameFile(oldFilePath, newFilePath)
+    }
+    
+    // 向文件添加内容
+    if(command.includes(ADD_TO_FILE)) {
+       const _idx = command.indexOf(' this content: ')
+       const filePath = command.substring(ADD_TO_FILE.length + 1, _idx)
+       const content = command.substring(_idx + 15 )
+       addToFile(filePath, content)
+    }
+    
   })
   
   // 监听文件
