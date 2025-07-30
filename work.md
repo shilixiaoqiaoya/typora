@@ -733,6 +733,13 @@ console.log(url);
 // https://example.com?name=John%20Doe&age=25
 ```
 
+- 对一些特殊字符做处理，保证url可用
+
+```js
+const id = 'xxx/123?param=value'
+const url = `https://example.com?id=${encodeURIComponent(id)}`
+```
+
 - 避免跨站脚本攻击，将危险字符进行转义
 
 ```js
