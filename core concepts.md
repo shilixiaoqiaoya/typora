@@ -31,6 +31,7 @@
 ### 基本概念
 
 - **一块内存空间，用于按字节存放二进制数据**
+- 垃圾回收：在不用时会释放所占用内存
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250728104644463.png" alt="image-20250728104644463" style="zoom:50%;" />
 
@@ -119,7 +120,9 @@ const fd = fs.openSync('test.txt', 'r')
 console.log('文件描述符', fd)
 ```
 
-- 打开一个文件时，发生了什么？并没有将整个文件放入内存
+- 打开一个文件时，发生了什么？
+  - 执行系统调用open()时，会给文件分配一个数字，也就是文件描述符
+  - 执行系统调用read()时，会从磁盘读取数据进入内存
 
 
 
@@ -259,6 +262,247 @@ const fs = require('fs/promises')
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250728175716321.png" alt="image-20250728175716321" style="zoom:40%;" />
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250728181142597.png" alt="image-20250728181142597" style="zoom:40%;" />
+
+
+
+# Stream
+
+### 示例
+
+- 向一个`.txt`文件写入字符十万次，使用promise和回调两种方式
+  - 实测发现：回调执行时间要比promise执行时间短
+
+```js
+// 执行时长8s; cpu: 100%(one core); memory: 50mb
+(async () => {
+  console.time('writeMany')
+  const fileHandle = await fs.open('test.txt', 'w')
+  for(let i=0; i<1000000; i++) {
+    await fileHandle.write(` ${i} `)
+  }
+  console.timeEnd('writeMany')
+})()
+
+// 执行时长1.2s; cpu: 100%(one core); memory: 50mb
+console.time('writeMany')
+fs.open('test.txt', 'w', (err, fd) => {
+  for(let i=0; i<1000000; i++) {
+    fs.writeSync(fd, ` ${i} `)
+  }
+  console.timeEnd('writeMany')
+})
+
+
+// 执行时长750ms; 非常非常占用cpu和memory(write操作向事件循环推入大量的回调，内存会爆满）
+console.time('writeMany')
+fs.open('test.txt', 'w', (err, fd) => {
+  for(let i=0; i<1000000; i++) {
+    fs.write(fd, ` ${i} `, () => {})
+    console.timeEnd('writeMany')
+  }
+})
+```
+
+
+
+- promise结合stream
+  - 执行速度很快，但是内存占用高
+
+```js
+// 执行时长150ms，memory: 150mb
+(async () => {
+  console.time('writeMany')
+  const fileHandle = await fs.open('test.txt', 'w')
+  const stream = fileHandle.createWriteStream()
+  for(let i=0; i<1000000; i++) {
+    const buff = Buffer.from(` ${i} `, 'utf-8')
+    stream.write(buff)
+  }
+  console.timeEnd('writeMany')
+})()
+```
+
+
+
+
+
+### 使用场景
+
+- **数据加密**，二进制数据的映射
+
+![image-20250729172529179](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250729172529179.png)
+
+- **数据压缩**，二进制数据的映射
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250729164711906.png" alt="image-20250729164711906" style="zoom:33%;" />
+
+- 其它：**网络通信，文件操作，不同进程间数据传输**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250729162643159.png" alt="image-20250729162643159" style="zoom: 33%;" />
+
+### 可写流
+
+- **使用流，写入硬件一次，不使用流，写入硬件n次**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250729180708551.png" alt="image-20250729180708551" style="zoom:40%;" />
+
+- 普通文件流，内部缓冲区默认大小：64KB 
+
+```js
+const writableStream = fs.createWriteStream('test.txt')
+// 获取流的缓冲区大小
+console.log(writableStream.writableHighWaterMark)   // 64KB
+// 获取流的缓冲区已使用大小
+console.log(writableStream.writableLength)  // 0
+
+const buff = Buffer.from('string')
+// write()方法，当写入缓冲区成功时返回true，否则返回false
+writableStream.write(buff)
+console.log(writableStream.writableLength)  // 6
+```
+
+
+
+- promise结合stream, 监听streamWrite的drain事件
+  - streamWrite.on('drain', () => {})
+    - 可写流的缓冲区被清空时触发
+    - 用于背压(backpressure)控制，防止内存溢出
+    - 当缓冲区满时，streamWrite.write()返回false
+
+```js
+// 执行时长150ms，memory: 50mb
+(async () => {
+  const fileHandle = await fs.open('test.txt', 'w')
+  const stream = fileHandle.createWriteStream()
+	let i = 0
+  const writeMany = () => {
+    while(i < 1000000) {
+      const buff = Buffer.from(` ${i} `, 'utf-8')
+      i++
+      if(!stream.write(buff)) break
+    }
+  }
+  writeMany()
+  stream.on('drain', () => {
+    writeMany()
+  })
+})()
+```
+
+- StreamWrite.end('最后的数据')：会触发finish事件
+- streamWrite.on('finish', () => {}) ：所有数据都已写入到底层目标，可写流不再接收新数据，缓冲区已清空
+
+
+
+
+
+
+
+### 可读流
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250729181100564.png" alt="image-20250729181100564" style="zoom:40%;" />
+
+- 复制文件的操作
+
+```js
+(async () => {
+  const fileHandleRead = await fs.open('src.txt', 'r')
+  const fileHandleWrite = await fs.open('dest.txt', 'w')
+  
+  const streamRead = fileHandleRead.createReadStream()
+  const streamWrite = fileHandleWrite.createWriteStream()
+  streamRead.on('data', (chunk) => {
+    // chunk为可读流缓冲区的数据
+    if(!streamWrite.write(chunk)) {
+      streamRead.pause()
+    }
+  })
+  
+  streamWrite.on('drain', () => {
+    streamRead.resume()
+  })
+})()
+```
+
+- streamRead.pause()：暂停向可读流的缓冲区push数据
+- streamRead.resume()：恢复向可读流的缓冲区push数据
+-  streamRead.on('data', () => {})：监听数据到达事件
+- 通过上述方法来控制可读流的数据流速度
+
+
+
+- chunk限制为64KB，导致有的数字不完整，如何处理chunk中不完整的数据
+
+```js
+let split = ''
+streamRead.on('data', (chunk) => {
+ const numbers = chunk.toString('utf-8').split('  ')
+  if(Number(numbers[0]) !== Number(numbers[1])-1) {
+    if(split) numbers[0] = split.trim() + numbers[0].trim()
+  }
+  if(Number(numbers[numbers.length-2])+1 !== Number(numbers[numbers.length-1])) {
+    split = numbers.pop()
+  }
+  console.log(numbers)
+})
+```
+
+
+
+- streamRead.on('end', () => {})
+  - 表示源数据已经全部读取完成
+
+
+
+
+
+### Duplex stream
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
