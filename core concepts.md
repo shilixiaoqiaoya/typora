@@ -269,7 +269,7 @@ const fs = require('fs/promises')
 
 ### 示例
 
-- 向一个`.txt`文件写入字符十万次，使用promise和回调两种方式
+- 向一个`.txt`文件写入字符十万次，使用`fs.open()`的promise和回调两种方式
   - 实测发现：回调执行时间要比promise执行时间短
 
 ```js
@@ -402,7 +402,7 @@ console.log(writableStream.writableLength)  // 6
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250729181100564.png" alt="image-20250729181100564" style="zoom:40%;" />
 
-- 复制文件的操作
+- 实现文件复制
 
 ```js
 (async () => {
@@ -411,7 +411,12 @@ console.log(writableStream.writableLength)  // 6
   
   const streamRead = fileHandleRead.createReadStream()
   const streamWrite = fileHandleWrite.createWriteStream()
+  
+  console.log(streamRead.readableFlowing)  // null 
+  
   streamRead.on('data', (chunk) => {
+    console.log(streamRead.readableFlowing)  // true 数据流动
+    
     // chunk为可读流缓冲区的数据
     if(!streamWrite.write(chunk)) {
       streamRead.pause()
@@ -424,10 +429,11 @@ console.log(writableStream.writableLength)  // 6
 })()
 ```
 
-- streamRead.pause()：暂停向可读流的缓冲区push数据
-- streamRead.resume()：恢复向可读流的缓冲区push数据
--  streamRead.on('data', () => {})：监听数据到达事件
-- 通过上述方法来控制可读流的数据流速度
+- 通过下面方法来控制可读流的数据流速度
+  - streamRead.pause()：暂停向可读流的缓冲区push数据
+  - streamRead.resume()：恢复向可读流的缓冲区push数据
+  - streamRead.on('data', () => {})：监听数据到达事件
+
 
 
 
@@ -447,18 +453,114 @@ streamRead.on('data', (chunk) => {
 })
 ```
 
-
-
 - streamRead.on('end', () => {})
   - 表示源数据已经全部读取完成
 
 
 
+#### pipe()
+
+- `readable.pipe(destination)`
+- **有背压控制**
+- 支持链式，中间的流需要是既可读又可写的 
+
+```js
+(async () => {
+  const destFile = await fs.open('text-copy.txt', 'w')
+  const srcFile = await fs.open('text.txt', 'r')
+  
+  const readStream = srcFile.createReadStream()
+  const writeStream = destFile.createWriteStream()
+  readStream.pipe(writeStream)
+})()
+```
+
+- `unpipe()`
+
+  - 断开之前通过`pipe()`方法建立的管道连接
+  - 如果可读流持续向一个已经关闭的可写流传输数据，可能导致内存泄漏
+
+  ```js
+  writeStream.on('close', () => {
+    readStream.unpipe(writeStream)
+  })
+  ```
 
 
 
 
-### Duplex stream
+
+#### pipeline()
+
+- **可以自动处理错误，会捕获所有流的错误【错误处理】**
+- **在出错或数据传输完成时自动销毁( destroy )所有流【资源释放】**
+
+```js
+const pipeline = require('stream/promises')
+pipeline(
+  readStream, 
+  transformStream1,
+  transformStream2, 
+  writeStream, 
+  (err) => {
+  	if(err) {
+      console.error('pipeline failed')
+    } else {
+      console.log('pipeline succeeded')
+    }
+	}
+)
+```
+
+
+
+
+
+
+
+### 模拟实现可读可写流
+
+- 假设text.txt文件是1GB，要实现文件的复制
+
+  - 使用`fs.readFile()`
+
+  ```js
+  // 使用readFile()时，会将整个文件加载进内存
+  // memeory usage: 1GB
+  // exec time: 1s
+  (async () => {
+    const destFile = await fs.open('text-copy.txt', 'w')
+    const res = await fs.readFile('text.txt')
+    await destFile.write(res)
+  })()
+  ```
+
+  - 使用`filehandle.read()`, 缓冲区大小是16KB
+
+  ```js
+  // memeory usage: 20mb
+  // exec time: 1s
+  (async () => {
+    const destFile = await fs.open('text-copy.txt', 'w')
+    const srcFile = await fs.open('text.txt', 'r')
+    let bytesRead = -1
+    while(bytesRead !== 0) {
+      const res = await srcFile.read()
+      bytesRead = res.bytesRead
+      destFile.write(res.buffer)
+    }
+  })()
+  ```
+
+  
+
+
+
+
+
+# network
+
+
 
 
 

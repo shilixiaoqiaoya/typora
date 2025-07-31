@@ -3102,6 +3102,27 @@ file 、blob、base64的dataurl
 
 
 
+
+
+### img
+
+- Img.complete：布尔值，表示图片是否已经加载完成
+- img.load()
+
+```js
+const img = new Image()
+img.src = 'xxx'
+img.onload = () => {
+  console.log('图片加载完成')
+}
+```
+
+
+
+
+
+
+
 ### input的type为file
 
 - accept指定图片的类型
@@ -3173,7 +3194,7 @@ axios
 ### FileReader
 
 - FileReader对象允许web应用程序异步读取存储在用户计算机上的文件（或原始数据缓冲区）的内容，使用File或Blob对象指定要读取的文件或数据
-- **【FileReader也就是将本地文件转换成base64格式的dataUrl】**
+- **【FileReader也就是将本地文件（File或Blob）转换成base64格式的dataUrl】**
 - base64
   - 一种基于64个可打印字符来表示二进制数据的表示方法
 
