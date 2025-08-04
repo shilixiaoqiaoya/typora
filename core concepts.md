@@ -558,8 +558,30 @@ pipeline(
 
 
 
+### fs.readFile()和fs.writeFile()
+
+- 基于系统调用，一次性操作，不是基于流的方式
+
+
+
+
+
+
+
 # network
 
+- **全球互联网的数据传输主要依赖海底光缆，光缆是通过光信号传输比特流「漂洋过海」**
+- 将电信号（比特流010）转换为不同波长的光信号（如1550nm激光）
+- 全球海底光缆网络总长度绕地球30圈，承载99%的国际互联网流量，是**全球互联网的大动脉**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250801112845561.png" alt="image-20250801112845561" style="zoom:60%;" />
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250801112934970.png" alt="image-20250801112934970" style="zoom:50%;" />
+
+- 手机开了热点，此时手机就是路由器
+- 传输层端口范围
+  - 0-65535
+  - 0-1023是系统端口，不能用于应用程序 
 
 
 
@@ -567,14 +589,162 @@ pipeline(
 
 
 
+### 实现chatApp
+
+- **`net.createServer()`: 创建tcp服务端或ipc服务端**
+  - 两台不同电脑上的两个进程通信，通过tcp
+  - 同一台电脑的两个进程通信，通过ipc
+  - **该方法返回值类型是`net.Server`**
+
+```js
+// server.js 
+const net = require('net')
+const server = net.createServer()
+// 保存与服务端建立连接的所有客户端
+const clients = []
+server.on('connection', socket => {
+  clients.push(socket)
+   // 注：此处的socket类型也是`net.Socket`
+  socket.on('data', (chunk) => {
+    clients.forEach((s) => {
+      s.write(chunk)
+    })
+  })
+})
+server.listen(3000, '127.0.0.1', () => {
+  console.log('open server on', server.address())
+})
+```
+
+- **`net.createConnection()`: 创建tcp客户端或ipc客户端**
+  - **该方法返回值类型是`net.Socket`**
+
+ ```js
+ // client.js
+ const net = require('net')
+ 	// 终端可以交互
+ const readline = require('readline/promises')
+ const rl = readline.createInterface({
+   input: process.stdin,
+   output: process.stdout
+ })
+ 
+ const socket = net.createConnection({ host: '127.0.0.1', port: 3000 }, async () => {
+   const msg = await rl.question('Enter a msg > ')
+   socket.write(msg)
+ })
+ socket.on('data', (chunk) => {
+   console.log(chunk.toString('utf-8'))
+ })
+ ```
 
 
 
+- **当多个客户端连接到同一服务端时，不同客户端对应不同的socket**
+  - socket就是通信双方，endpoint，是双工流
+
+```js
+// server.js
+server.on('connection', socket => {
+  socket.on('data', (chunk) => {
+    console.log(chunk.toString('utf-8'))
+  })
+})
+```
 
 
 
+- 优化终端样式
+
+```js
+// client.js
+	// 清空某行，传0清空一行
+const clearLine = (dir) => {
+  return new Promise((resolve) => {
+    process.stdout.clearLine(dir, () => {
+      resolve()
+    })
+  })
+}
+	// 移动光标
+const moveCursor = (dx, dy) => {
+  return new Promise((resolve) => {
+    process.stdout.moveCursor(dx, dy, () => {
+      resolve()
+    })
+  })
+}
+const socket = net.createConnection({ host: '127.0.0.1', port: 3000 }, async () => {
+  const ask = async () => {
+    const msg = await rl.question('Enter a msg > ')
+    // 输入msg后光标先上移一行，再清空
+    await moveCursor(0, -1)
+    await clearLine(0)
+    socket.write(msg)
+  }
+  ask()
+  
+  socket.on('data', async (chunk) => {
+    console.log()
+    await moveCursor(0, -1)
+    await clearLine(0)
+    console.log(chunk.toString('utf-8'))
+    ask()
+  })
+})
+```
 
 
+
+- 为每个客户端分配id
+
+```js
+// server.js
+server.on('connection', socket => {
+  const clientId = clients.length + 1
+  socket.write(`id-${clientId}`)
+  clients.push({ id: clientId, socket })
+   // 注：此处的socket类型也是`net.Socket`
+  socket.on('data', (chunk) => {
+    clients.forEach(({socket}) => {
+      socket.write(`${chunk.toString('utf-8')} from ${clientId}`)
+    })
+  })
+})
+
+// client.js
+socket.on('data', async (chunk) => {
+  console.log()
+  await moveCursor(0, -1)
+  await clearLine(0)
+  if(chunk.toString('utf-8').startsWith('id')) {
+    console.log(`your id id ${chunk.toString('utf-8').substring(3)}`)
+  } else {
+    console.log(chunk.toString('utf-8'))
+  }
+  ask()
+})
+```
+
+
+
+- 通知有新用户加入/离开
+
+```js
+// server.js
+server.on('connection', socket => {
+  const clientId = clients.length + 1
+  clients.forEach(({socket}) => {
+    socket.write(`User ${clientId} joins`)
+  })
+  ...
+  socket.on('end', (s) => {
+    clients.forEach(({socket}) => {
+      socket.write(`User ${clientId} leaves`)
+    })
+  })
+})
+```
 
 
 
