@@ -583,7 +583,7 @@ pipeline(
   - 0-65535
   - 0-1023是系统端口，不能用于应用程序 
 
-
+- ipv6标准，本地回环地址是`::1`
 
 
 
@@ -631,6 +631,7 @@ server.listen(3000, '127.0.0.1', () => {
  
  const socket = net.createConnection({ host: '127.0.0.1', port: 3000 }, async () => {
    const msg = await rl.question('Enter a msg > ')
+   // socket代表服务端
    socket.write(msg)
  })
  socket.on('data', (chunk) => {
@@ -640,8 +641,8 @@ server.listen(3000, '127.0.0.1', () => {
 
 
 
-- **当多个客户端连接到同一服务端时，不同客户端对应不同的socket**
-  - socket就是通信双方，endpoint，是双工流
+- **当多个客户端连接到同一服务端时，每次触发connection事件时，socket代表不同的客户端**
+  - socket是双工流，可读可写
 
 ```js
 // server.js
@@ -750,11 +751,85 @@ server.on('connection', socket => {
 
 
 
+### dns
+
+```js
+const dns = require('dns/promises')
+(async () => {
+  const res = await dns.lookup('google.com')
+  console.log(res)  // { address: '8.7.198.46', family:4 }
+})()
+```
+
+
+
+- cat /etc/hosts
+
+  - 查看本地域名与ip的静态映射，优先级高于dns查询
+  - 使用场景
+    - 本地开发测试，将域名临时指向本地IP，绕过DNS解析
+
+  - 安全性：恶意程序可能篡改此文件以劫持域名【dns劫持】
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250804143347134.png" alt="image-20250804143347134" style="zoom:40%;" />
+
+
+
+### uploader
+
+#### server
+
+```js
+const net = require('net')
+const fs = require('fs/promises')
+const path = require('path')
+
+const server = net.createServer()
+server.on('connection', async (socket) => {
+  const filePath = path.resolve(__dirname, 'storage', 'text.txt')
+  const fileHandle = await fs.open(filePath, 'w')
+  const fileStream = fileHandle.createWriteStream()
+  socket.on('data', (chunk) => {
+    fileStream.write(chunk)
+  })
+  // 连接结束
+  socket.on('end', () => {
+    fileHandle.close()
+  })
+})
+
+server.listen(5050, '127.0.0.1', () => {
+  console.log('uploader server opened on', server.address())
+})
+```
 
 
 
 
 
+#### client
+
+```js
+const net = require('net')
+const fs = require('fs/promises')
+
+const socket = net.createConnection({host: '127.0.0.1', port: 5050}, async () => {
+  const filePath = './upload.txt'
+  const fileHandle = await fs.open(filePath, 'r')
+  const fileStream = fileHandle.createReadStream()
+  fileStream.on('data', chunk => {
+    socket.write(chunk)
+  })
+  // 读文件结束
+  fileStream.on('end', () => {
+    socket.end()
+  })
+})
+```
+
+
+
+### 
 
 
 
