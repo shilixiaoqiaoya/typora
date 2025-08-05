@@ -616,6 +616,8 @@ server.listen(3000, '127.0.0.1', () => {
 })
 ```
 
+
+
 - **`net.createConnection()`: 创建tcp客户端或ipc客户端**
   - **该方法返回值类型是`net.Socket`**
 
@@ -641,8 +643,20 @@ server.listen(3000, '127.0.0.1', () => {
 
 
 
-- **当多个客户端连接到同一服务端时，每次触发connection事件时，socket代表不同的客户端**
-  - socket是双工流，可读可写
+- socket
+
+  - 双工流
+    - client端
+      - 可写流：向服务器发送数据
+      - 可读流：接收服务器响应
+
+  - server端
+    - 可读流：接收客户端数据
+      - 可写流：向客户端发送响应
+
+
+
+- **当多个客户端连接到同一服务端时，每次触发connection事件时，不同的客户端对应有不同socket**
 
 ```js
 // server.js
@@ -775,37 +789,7 @@ const dns = require('dns/promises')
 
 
 
-### uploader
-
-#### server
-
-```js
-const net = require('net')
-const fs = require('fs/promises')
-const path = require('path')
-
-const server = net.createServer()
-server.on('connection', async (socket) => {
-  const filePath = path.resolve(__dirname, 'storage', 'text.txt')
-  const fileHandle = await fs.open(filePath, 'w')
-  const fileStream = fileHandle.createWriteStream()
-  socket.on('data', (chunk) => {
-    fileStream.write(chunk)
-  })
-  // 连接结束
-  socket.on('end', () => {
-    fileHandle.close()
-  })
-})
-
-server.listen(5050, '127.0.0.1', () => {
-  console.log('uploader server opened on', server.address())
-})
-```
-
-
-
-
+### 实现uploader
 
 #### client
 
@@ -818,18 +802,138 @@ const socket = net.createConnection({host: '127.0.0.1', port: 5050}, async () =>
   const fileHandle = await fs.open(filePath, 'r')
   const fileStream = fileHandle.createReadStream()
   fileStream.on('data', chunk => {
-    socket.write(chunk)
+    // socket为可写流，向服务器发送数据
+    if(!socket.write(chunk)) {
+      fileStream.pause()
+    }
   })
+  
+  socket.on('drain', () => {
+    fileStream.resume()
+  })
+  
   // 读文件结束
   fileStream.on('end', () => {
     socket.end()
+    console.log('文件上传完成')
   })
 })
 ```
 
 
 
-### 
+#### server
+
+```js
+const net = require('net')
+const fs = require('fs/promises')
+const path = require('path')
+
+const server = net.createServer()
+server.on('connection', (socket) => {
+  let fileHandle, fileStream
+  // socket为可读流，接收客户端数据
+  socket.on('data', async (chunk) => {
+    if(!fileHandle) {
+      socket.pause()
+      const filePath = path.resolve(__dirname, 'storage', 'text.txt')
+      fileHandle = await fs.open(filePath, 'w')
+      fileStream = fileHandle.createWriteStream()
+      fileStream.write(chunk)
+      socket.resume()
+      fileStream.on('drain', () => {
+        socket.resume()
+      })
+    } else {
+      if(!fileStream.write(chunk)) {
+        socket.pause()
+      }
+    }
+  })
+  
+  // 连接结束
+  socket.on('end', () => {
+    fileHandle.close()
+    // 下面两行代码非常重要，若没有，第二次连接时会尝试写入已关闭的fd，导致错误
+    fileHandle = null;
+    fileStream = null;
+  })
+})
+
+server.listen(5050, '127.0.0.1', () => {
+  console.log('uploader server opened on', server.address())
+})
+```
+
+
+
+
+
+#### 动态指定上传文件
+
+##### client
+
+```js
+const path = require('path')
+const socket = net.createConnection({host: '127.0.0.1', port: 5050}, async () => {
+  const filePath = process.argv[2];
+  const fileName = path.basename(filePath);
+  socket.write(`fileName: ${fileName}---`);
+  const fileHandle = await fs.open(filePath, "r");
+  ...
+})
+```
+
+##### server
+
+```js
+server.on('connection', (socket) => {
+  let fileHandle, fileStream
+  // socket为可读流，接收客户端数据
+  socket.on('data', async (chunk) => {
+    if(!fileHandle) {
+      socket.pause();
+      const indexOfDivider = chunk.indexOf("---");
+      const fileName = chunk.subarray(10, indexOfDivider).toString("utf-8");
+      const filePath = path.resolve(__dirname, "storage", fileName);
+      fileHandle = await fs.open(filePath, 'w')
+      fileStream = fileHandle.createWriteStream()
+      fileStream.write(chunk.subarray(indexOfDivider + 3))
+      ...
+    }
+  })
+	...
+})
+```
+
+
+
+
+
+#### 显示上传进度条
+
+##### client
+
+```js
+const fileSize = (await fileHandle.stat()).size
+let uploadedPercent = 0  // 上传百分比
+let uploadedBytes = 0  // 已上传字节
+fileStream.on('data', async (chunk) => {
+  if(!socket.write(chunk)) {
+    fileStream.pause()
+  }
+  uploadedBytes += chunk.length
+  const newUploadedPercent = (uploadedBytes / fileSize).toFixed(2) * 100;
+  if (newUploadedPercent !== uploadedPercent) {
+    console.log(`${newUploadedPercent}%`);
+    uploadedPercent = newUploadedPercent;
+  }
+})
+```
+
+
+
+
 
 
 
