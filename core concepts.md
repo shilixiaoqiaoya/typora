@@ -791,7 +791,9 @@ const dns = require('dns/promises')
 
 ### 实现uploader
 
-#### client
+#### 基本实现
+
+- client
 
 ```js
 const net = require('net')
@@ -820,9 +822,7 @@ const socket = net.createConnection({host: '127.0.0.1', port: 5050}, async () =>
 })
 ```
 
-
-
-#### server
+- server
 
 ```js
 const net = require('net')
@@ -871,7 +871,7 @@ server.listen(5050, '127.0.0.1', () => {
 
 #### 动态指定上传文件
 
-##### client
+- client
 
 ```js
 const path = require('path')
@@ -884,7 +884,7 @@ const socket = net.createConnection({host: '127.0.0.1', port: 5050}, async () =>
 })
 ```
 
-##### server
+- server
 
 ```js
 server.on('connection', (socket) => {
@@ -912,7 +912,7 @@ server.on('connection', (socket) => {
 
 #### 显示上传进度条
 
-##### client
+- client
 
 ```js
 const fileSize = (await fileHandle.stat()).size
@@ -936,6 +936,33 @@ fileStream.on('data', async (chunk) => {
 
 
 
+
+### UDP
+
+- client
+
+```js
+const dgram = require('dgram')
+const sender = dgram.createSocket('udp4')
+sender.send('some text', 8000, '127.0.0.1', (error, bytes) => {
+  if(error) console.log(error)
+  console.log(bytes)
+})
+```
+
+- server
+
+```js
+const dgram = require('dgram')
+const receiver = dgram.createSocket('udp4')
+receiver.on('message', (message, remoteInfo) => {
+  console.log(`server got: ${message} from ${remoteInfo.address}:${remoteInfo.port}`)
+})
+receiver.bind({ address: '127.0.0.1', port: 8000 })
+receiver.on('listening', () => {
+  console.log(receiver.address())
+})
+```
 
 
 
