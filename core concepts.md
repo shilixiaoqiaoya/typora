@@ -589,7 +589,7 @@ pipeline(
 
 
 
-### 实现chatApp
+## 实现chatApp
 
 - **`net.createServer()`: 创建tcp服务端或ipc服务端**
   - 两台不同电脑上的两个进程通信，通过tcp
@@ -765,7 +765,7 @@ server.on('connection', socket => {
 
 
 
-### dns
+## dns
 
 ```js
 const dns = require('dns/promises')
@@ -789,7 +789,7 @@ const dns = require('dns/promises')
 
 
 
-### 实现uploader
+## 实现uploader
 
 #### 基本实现
 
@@ -937,7 +937,7 @@ fileStream.on('data', async (chunk) => {
 
 
 
-### UDP
+## UDP
 
 - client
 
@@ -963,6 +963,175 @@ receiver.on('listening', () => {
   console.log(receiver.address())
 })
 ```
+
+
+
+
+
+
+
+## HTTP
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250807102019199.png" alt="image-20250807102019199" style="zoom:40%;" />
+
+
+
+
+
+
+
+
+
+
+
+# 前后端
+
+当用户访问百度官网时，涉及的主机角色
+
+| 角色           | 作用                                                  | 示例                     |
+| :------------- | ----------------------------------------------------- | ------------------------ |
+| 用户主机       | 发起请求的客户端设备                                  | 电脑、手机               |
+| 前端资源服务器 | 存储和返回静态资源（index.html、styles.css、main.js） | cdn边缘节点、nginx服务器 |
+| 后端应用服务器 | 处理动态请求                                          | 后端集群                 |
+| cdn节点        | 缓存静态资源，加速访问                                | 第三方cdn                |
+| dns服务器      | 解析域名为ip                                          | 公共dns（如8.8.8.8）     |
+
+- 用户主机-》dns服务器，获取最近的cdn节点ip
+- 用户主机-》cdn节点ip / nginx服务器，获取静态资源，通常是单页应用，由前端接管路由，渲染对应的组件
+- 用户主机-》后端应用服务器，动态请求
+  - 请求通过负载均衡器分配到后端集群，后端处理请求返回json数据
+  - 负载均衡策略：地理就近、轮询分配、智能权重
+
+
+
+
+
+### nginx服务
+
+- **静态资源托管能力**
+  - 可以快速托管前端构建产物（vue/react打包后的dist目录）
+
+```nginx
+server {
+  listen 80;
+  root /var/www/html; #静态资源目录
+  location / {
+    try_files $uri $uri/ /index.html  #spa前端路由支持
+  }
+}
+```
+
+- **反向代理**，将请求转发给后端服务，nginx作为”流量中转站“
+  - 隐藏后端真实ip，防攻击
+
+```nginx
+location /api {
+  proxy_pass http://backend-server:3000  #转发到后端
+  proxy_set_header Host $host #透传请求头
+}
+```
+
+- **负载均衡**
+  - 将流量分配到多台后端服务器，避免单点过载
+
+```nginx
+upstream backend {
+  server 192.168.1.1:3000 weight=5  #权重分配
+  server 192.168.1.2:3000 
+  server 192.168.1.3:3000 backup    # 备用服务器
+}
+location / {
+  proxy_pass http://backend  #负载均衡
+}
+```
+
+
+
+
+
+### 服务端渲染
+
+- 以元宝分享对话链接为例：https://yb.tencent.com/s/n9NnjAkV6mwc
+
+- nginx路由配置
+
+```nginx
+location /s/ {
+  # 关键配置，不尝试找前端文件，直接转发到后端
+  try_files $uri $uri/ /backend-handler?code=n9NnjAkV6mwc
+}
+```
+
+- 后端处理伪代码， `Express`为例
+
+```js
+app.get('/backend-handler', (req, res) => {
+  const shortCode = req.query.code  // 获取对话短码
+  const chatData = db.query(`SELECT * FROM chats WHERE id = (SELECT chat_id FROM short_codes WHERE code = ?)`, [shortCode])
+  
+  // 动态生成html（服务端渲染）
+  const html = `
+      <!DOCTYPE html>
+      <html>
+          <head><title>分享对话</title></head>
+          <body>
+              <div class="chat">${chatData.content}</div>
+              <!-- 直接内嵌CSS避免二次请求 -->
+              <style>.chat { color: red }</style>
+          </body>
+      </html>
+  `;
+  res.send(html)
+})
+```
+
+- 浏览器收到的响应
+
+```text
+HTTP/1.1 200 OK
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+    ... # 包含实际数据的完整页面
+</html>
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
