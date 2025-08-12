@@ -981,6 +981,8 @@ receiver.on('listening', () => {
   - 客户端：用户设备上的应用程序（浏览器、app、curl）
   - 服务端：服务器上运行的特定服务（如nginx、api服务）
 
+
+
 ### http模块
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250811140555528.png" alt="image-20250811140555528" style="zoom:40%;" />
@@ -1169,7 +1171,7 @@ server.listen(9000, () => {
 </html>
 ```
 
-- 代码有问题，需检查 ？？？？
+- 代码有问题，需检查 ！！！
 
 ```js
   // json路由，上传功能
@@ -1265,7 +1267,7 @@ server.listen(PORT, () => {
 
 
 
-- 对于单页面应用，前端路由，全部返回index.html，由前端解析路由渲染出对应界面
+- 对于单页面应用，访问前端路由时，全部返回index.html，由前端解析路由渲染出对应界面
 
 ```js
 server.route('get', '/login', (req, res) => {
@@ -1301,7 +1303,7 @@ server.route('post', '/api/login', (req, res) => {
 ### 负载均衡服务
 
 - 反向代理
-  - 分配客户端流量到不同服务器，避免某台服务器请求压力过大
+  - **分配客户端流量到不同服务器，避免某台服务器请求压力过大**
   - 本质上也是server
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250812095900308.png" alt="image-20250812095900308" style="zoom:40%;" />
@@ -1330,7 +1332,7 @@ proxy.on('request', (clientRequest, proxyResponse) => {
     headers: clientRequest.headers
   })
   // 收到主服务器的响应
-  proxyRequest.on('request', (mainServerResponse) => {
+  proxyRequest.on('response', (mainServerResponse) => {
     // 设置代理响应状态码和响应头
     proxyResponse.writeHead(mainServerResponse.statusCode, mainServerResponse.headers)
     // 写入响应体到proxyResponse
@@ -1357,12 +1359,14 @@ proxy.listen(PORT, () => {
 - 属性：Expires、HttpOnly、Secure
 
 ``` js
+// 存储用户token
+const SESSIONS = [] 
 // 后端下发token，并将token和userid映射关系存入数据库
 const token = Math.floor(Math.random() * 10000000000).toString()
 SESSIONS.push({ userId: user.id, token})
 res.setHeader('Set-Cookie', `token=${token}; Path=/;`)
 
-// 浏览器每次请求会自动携带token，后端可对请求头做校验
+// 浏览器每次请求会自动携带token，后端对请求头做校验
 const token = req.headers.cookie.split('=')[1]
 const session = SESSIONS.find(s => s.token === token)
 if(session) {
@@ -1372,7 +1376,22 @@ if(session) {
 }
 ```
 
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250812104652967.png" alt="image-20250812104652967" style="zoom:50%;" />
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250812104652967.png" alt="image-20250812104652967" style="zoom:40%;" />
+
+- 退出登录
+  - 数据库删除该token
+  - **浏览器删除该token，利用Set-Cookie，将Expires或Max-Age设置为过去的时间点**
+
+```js
+server.route('delete', '/api/logout', (req, res) => {
+  const idx = SESSIONS.findIndex(s => s.userId === req.userId)
+  if(idx !== -1) SESSIONS.splice(idx, 1)
+  res.setHeader('Set-Cookie', 'token=deleted; Max-Age=0')
+  res.status(200).json({ msg: 'logout successfully' })
+})
+```
+
+
 
 
 
@@ -1387,17 +1406,21 @@ class Butter {
     this.server = http.createServer()
 
     // 维护一个middlewares数组，存储所有的中间件
-    tthis.middlewares = []
+    this.middlewares = []
 
     this.server.on('request', (req, res) => {
       // 先执行中间件逻辑
 			this.middlewares[0](req, res, () => {
         this.middlewares[1](req, res, () => {
           this.middlewares[2](req, res, () => {
+            
+            if(!this.routes[req.method.toLowerCase() + req.url]){
+               return res.status(404).json({error: `cannot find ${req.method} ${req.url}`})
+            }
             // 真正处理请求
             this.routes[req.method.toLowerCase() + req.url](req, res)
-          }
-        }
+          })
+        })
       })
     })
   }
@@ -1426,7 +1449,7 @@ this.server.on('request', (req, res) => {
 })
 ```
 
-- server逻辑
+- server.js
 
 ```js
 // server.js
@@ -1463,7 +1486,7 @@ server.listen(PORT, () => {
 
 
 
-#### 身份验证中间件
+#### 身份验证
 
 ```js
 server.beforeEach((req, res, next) => {
@@ -1486,7 +1509,39 @@ server.beforeEach((req, res, next) => {
 
 
 
+#### 解析json请求体
 
+```js
+server.beforeEach((req, res, next) => {
+  if(req.headers['content-type'] === 'application/json') {
+    let body = ''
+    req.on('data', (chunk) => {
+      body += chunk.toString('utf-8')
+    })
+    req.on('end', () => {
+      req.body = JSON.parse(body)
+      next()
+    })
+  } else {
+    next()
+  }
+})
+```
+
+
+
+#### 返回index.html
+
+```js
+server.beforeEach((req, res, next) => {
+  const routes = ['/', '/login', '/profile', '/new-post']
+  if(routes.indexOf(req.url) !== -1 && req.method === 'GET') {
+    res.status(200).sendFile('./public/index.html', 'text/html')
+  } else {
+    next()
+  }
+})
+```
 
 
 
@@ -1501,16 +1556,6 @@ server.beforeEach((req, res, next) => {
 tcp连接，数据包，是代码里对应的chunk吗
 
 客户端每次write会触发服务端的data事件
-
-
-
-
-
-
-
-
-
-
 
 
 
