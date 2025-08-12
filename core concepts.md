@@ -1,4 +1,4 @@
-# 字符集
+#  字符集
 
 ### unicode
 
@@ -342,8 +342,6 @@ fs.open('test.txt', 'w', (err, fd) => {
 
 ### 可写流
 
-- **使用流，写入硬件一次，不使用流，写入硬件n次**
-
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250729180708551.png" alt="image-20250729180708551" style="zoom:40%;" />
 
 - 普通文件流，内部缓冲区默认大小：64KB 
@@ -400,6 +398,8 @@ console.log(writableStream.writableLength)  // 6
 
 ### 可读流
 
+- 可读流会维护一个缓冲区，用于临时存储从底层资源（如文件、网络）读取的数据
+
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250729181100564.png" alt="image-20250729181100564" style="zoom:40%;" />
 
 - 实现文件复制
@@ -433,6 +433,7 @@ console.log(writableStream.writableLength)  // 6
   - streamRead.pause()：暂停向可读流的缓冲区push数据
   - streamRead.resume()：恢复向可读流的缓冲区push数据
   - streamRead.on('data', () => {})：监听数据到达事件
+    - data事件的触发不依赖缓冲区是否填满，当数据达到缓冲区时立即触发
 
 
 
@@ -972,7 +973,542 @@ receiver.on('listening', () => {
 
 ## HTTP
 
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250807102019199.png" alt="image-20250807102019199" style="zoom:40%;" />
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250807102019199.png" alt="image-20250807102019199" style="zoom:35%;" />
+
+
+
+- tcp连接本质上是用户主机上的应用程序（客户端）与服务器上的服务应用程序（服务端）之间建立的端到端通信链路
+  - 客户端：用户设备上的应用程序（浏览器、app、curl）
+  - 服务端：服务器上运行的特定服务（如nginx、api服务）
+
+### http模块
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250811140555528.png" alt="image-20250811140555528" style="zoom:40%;" />
+
+- server  
+
+```js
+const http = require('http')
+const server = http.createServer()
+server.on('request', (request, response) => {
+  // 打印请求方法、url、请求头
+  console.log(request.method, request.url, request.headers)
+  request.on("data", (chunk) => {
+    console.log(chunk.toString("utf-8"));
+  });
+  request.on("end", () => {
+    response.writeHead(200, {"Content-Type": 'application/json'})
+    response.end(JSON.stringify({status: 'success'}))
+  });
+  
+})
+server.listen(8000, () => {
+  console.log('server listening on http://localhost:8000')
+})
+```
+
+
+
+- client
+
+```js
+// agent对应于特定的一个tcp连接
+const agent = new http.Agent({ keepAlive: true })
+// request是双工流
+const requst = http.request({
+  agent: agent,
+  hostname: 'localhost',
+  port: 8000,
+  method: 'POST',
+  path: '/create-post',
+  headers: {
+		"Content-Type": 'application/json'
+  }
+})
+request.on('response', (response) => {
+  console.log(response.statusCode, response.headers)
+  response.on("data", (chunk) => {
+    console.log(JSON.parse(chunk.toString("utf-8")));
+  });
+})
+request.write(JSON.stringify({message: 'Hi there'}))
+request.write(JSON.stringify({message: 'How are you going'}))
+request.end(JSON.stringify({message: 'This is my last message'}))
+```
+
+
+
+- net模块实现client，可以成功和http server通信
+
+```js
+const net = require('net')
+const socket = net.createConnection({ host: 'localhost', port: 8050 }, () => {
+  // 请求行、请求头的二进制数据 
+  const head = Buffer.from("...")
+  // 请求体的二进制数据, 这些二进制数据是未经过加密的，通过toString方法就可以解析出内容（http是明文传输）
+  const body = Buffer.from('...')
+  socket.write(Buffer.concat([head, body]))
+})
+socket.on('data', (chunk) => {
+  console.log(chunk.toString('utf-8'))
+})
+```
+
+
+
+- net模块实现server
+
+```js
+const server = net.createServer((socket) => {
+  socket.on('data', (data) => {
+    console.log(data.toString('utf-8'))
+  })
+  
+  // 响应的二进制数据
+  const response - Buffer.from('...')
+  socket.write(response)
+})
+server.listen(8000, '127.0.0.1'. () => {
+  console.log(server.address())
+})
+```
+
+
+
+
+
+### 重要细节
+
+- **Content-length**: 所要发送数据的大小
+- **Transfer-encoding: 'chunked'**：未标明数据大小的默认头【和Content-length不同时使用 】
+
+- **Connection: keep-alive** 多个请求复用一个tcp连接
+
+- 媒体类型**content-type**
+
+  - 是必需的，决定了浏览器以何种方式处理文件，比如css文件会渲染到页面，js文件会被执行
+  - 值是 `type/subtype`
+  - 以.png为例，对应二进制数据中，开头一连串**magic number**`89 50 4e 47 0d 0a 1a 0a`表明它是.png文件类型
+
+- 请求方法head
+
+  - 快速获取资源的元信息，**只返回响应头**，比如看资源的类型（content-type）、大小（content-length）
+  - 可以节省带宽，尤其对大文件（如视频）的元数据查询非常有效
+
+- 301 重定向状态码
+
+  - **常用于 Nginx 等web服务来实现永久重定向**
+
+  ```nginx
+  # 方式1：rewrite（支持正则匹配）
+  rewrite ^/old-url$ /new-url permanent;  # 'permanent' 表示301
+  
+  # 方式2：return（更高效，适合简单路径）
+  server {
+      listen 80;
+      server_name example.com;
+      return 301 https://example.com$request_uri;  # HTTP→HTTPS 跳转
+  }
+  ```
+
+  - 告知浏览器，目标资源已永久迁移到新url，浏览器会自动重新访问新地址
+  - seo友好：搜索引擎会将旧url的权重重新转移到新url
+
+  
+
+
+
+### web server
+
+- 返回html、css、js文件【文件路由】
+- 除了文件路由，还有一种json路由
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250811103745814.png" alt="image-20250811103745814" style="zoom:80%;" />
+
+```js
+const http = require('http')
+const fs = require('fs/promises')
+const server = http.createServer()
+server.on('request', async (request, response) => {
+  // html文件路由
+  if(request.url === '/' && request.method === 'GET') {
+    response.setHeader('Content-Type', 'text/html')
+    const fileHandle = await fs.open('./public/index.html', 'r')
+    const fileStream = fileHandle.createReadStream()
+    fileStream.pipe(response)
+  }
+  // css文件路由
+  if(request.url === '/styles.css' && request.method === 'GET') {
+    response.setHeader('Content-Type', 'text/css')
+    const fileHandle = await fs.open('./public/styles.css', 'r')
+    const fileStream = fileHandle.createReadStream()
+    fileStream.pipe(response)
+  }
+  // js文件路由
+  if(request.url === '/scripts.js' && request.method === 'GET') {
+    response.setHeader('Content-Type', 'text/javascript')
+    const fileHandle = await fs.open('./public/scripts.js', 'r')
+    const fileStream = fileHandle.createReadStream()
+    fileStream.pipe(response)
+  }
+})
+server.listen(9000, () => {
+	console.log('server listening on http://localhost:9000')
+})
+```
+
+```html
+<html>
+  <head>
+  	<link href='styles.css'/>  // 浏览器会发送请求 'http://localhost:9000/styles.css'
+  </head>
+  <body>
+    <h1>hello world</h1>
+		<script src='scripts.js'></script>  // 浏览器会发送请求 'http://localhost:9000/scripts.js'
+  </body>
+</html>
+```
+
+- 代码有问题，需检查 ？？？？
+
+```js
+  // json路由，上传功能
+  if(request.url === '/upload' && request.method === 'POST') {
+    response.setHeader('Content-Type', 'application/json')
+   	const fileHandle = await fs.open('./storage/image.jpg', 'w')
+  	const fileStream = fileHandle.createWriteStream()
+   	request.pipe(fileStream)
+   	fileStream.on('finish', async () => {
+      await fileHandle.close()
+     	response.end(JSON.stringify({msg: 'file was uploaded'}))
+   	})
+  }
+```
+
+
+
+
+
+### 封装http模块
+
+#### 路由实现
+
+```js
+// butter.js
+const http = require('http')
+const fs = require('fs/promises')
+class Butter {
+  constructor() {
+    this.server = http.createServer()
+    
+    // 维护一个routes对象，key为[method+path],value是一个函数 { 'get/': () => {}, 'post/upload': () => {} }
+    this.routes = {}
+    this.server.on('request', (req, res) => {
+      // 【处理文件路由】
+      res.sendFile = async (path, mime) => {
+        const fileHandle = await fs.open(path, 'r')
+        const fileStream = fileHandle.createReadStream()
+        res.setHeader('Content-Type', mime)
+        fileStream.pipe(res)
+      }
+      // 设置状态码
+      res.status = (code) => {
+        res.statusCode = code
+        return res
+      }
+      // 【处理json路由】
+      res.json = data => {
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify(data)) // 适用于大小低于流的内部缓冲区大小的json
+      }
+      
+			// 当访问到未定义路由时，返回404
+      if(!this.routes[req.method.toLowerCase() + req.url]){
+         return res.status(404).json({error: `cannot find ${req.method} ${req.url}`})
+      }
+      
+      // 真正处理请求
+      this.routes[req.method.toLowerCase() + req.url](req, res)
+    })
+  }
+  listen(port, cb) {
+    this.server.listen(port, cb)
+  }
+  // 路由
+  route(method, path, cb) {
+    this.routes[method+path] = cb
+  }
+}
+module.exports = Butter
+```
+
+```js
+// server.js
+const Butter = require('./butter.js')
+const PORT = 9000
+
+const server = new Butter()
+//【文件路由】
+server.route('get', '/', (req, res) => {
+  res.status(200).sendFile('./public/index.html', 'text/html')
+})
+server.route('get', '/styles.css', (req, res) => {
+  res.status(200).sendFile('./public/styles.css', 'text/css')
+})
+server.route('get', '/scripts.js', (req, res) => {
+  res.status(200).sendFile('./public/scripts.js', 'text/javascript')
+})
+server.listen(PORT, () => {
+  console.log('server listening on http://localhost:9000')
+})
+```
+
+
+
+- 对于单页面应用，前端路由，全部返回index.html，由前端解析路由渲染出对应界面
+
+```js
+server.route('get', '/login', (req, res) => {
+  res.status(200).sendFile('./public/index.html', 'text/html')
+})
+```
+
+
+
+#### Body-parser
+
+- 解析`Content-Type`为`application/json`请求体
+
+```js
+server.route('post', '/api/login', (req, res) => {
+  let body = ''
+  req.on('data', (chunk) => {
+    body += chunk.toString('utf-8')
+  })
+  req.on('end', () => {
+    body = JSON.parse(body)
+    const { username, password } = body
+  })
+})
+```
+
+
+
+
+
+
+
+### 负载均衡服务
+
+- 反向代理
+  - 分配客户端流量到不同服务器，避免某台服务器请求压力过大
+  - 本质上也是server
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250812095900308.png" alt="image-20250812095900308" style="zoom:40%;" />
+
+```js
+const http = require('http')
+// 代理服务的端口
+const PORT = 9000
+// 主服务器
+const mainServers = [
+  {host: 'localhost', port: 9001},
+  {host: 'localhost', port: 9002},
+]
+
+const proxy = http.createServer()
+// 监听客户端的请求
+proxy.on('request', (clientRequest, proxyResponse) => {
+  // 采用算法：循环
+  const mainServer = mainServers.shift()
+  mainServers.push(mainServer)
+  const proxyRequest = http.request({
+    host: mainServer.host,
+    port: mainServer.port,
+    path: clientRequest.url,
+    method: clientRequest.method,
+    headers: clientRequest.headers
+  })
+  // 收到主服务器的响应
+  proxyRequest.on('request', (mainServerResponse) => {
+    // 设置代理响应状态码和响应头
+    proxyResponse.writeHead(mainServerResponse.statusCode, mainServerResponse.headers)
+    // 写入响应体到proxyResponse
+  	mainServerResponse.pipe(proxyResponse)
+  })
+  // 写入请求体到proxyRequest
+  clientRequest.pipe(proxyRequest)
+})
+// 注：proxyRequest proxyResponse 都是可写流
+
+proxy.listen(PORT, () => {
+  console.log('proxy server is running')
+})
+```
+
+
+
+
+
+### cookie
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250812102633550.png" alt="image-20250812102633550" style="zoom:40%;" />
+
+- 属性：Expires、HttpOnly、Secure
+
+``` js
+// 后端下发token，并将token和userid映射关系存入数据库
+const token = Math.floor(Math.random() * 10000000000).toString()
+SESSIONS.push({ userId: user.id, token})
+res.setHeader('Set-Cookie', `token=${token}; Path=/;`)
+
+// 浏览器每次请求会自动携带token，后端可对请求头做校验
+const token = req.headers.cookie.split('=')[1]
+const session = SESSIONS.find(s => s.token === token)
+if(session) {
+  console.log('用户验证通过')
+} else {
+  res.status(401).json({error: 'unauthorized'})
+}
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250812104652967.png" alt="image-20250812104652967" style="zoom:50%;" />
+
+
+
+
+
+### 中间件
+
+```js
+// butter.js
+class Butter {
+  constructor() {
+    this.server = http.createServer()
+
+    // 维护一个middlewares数组，存储所有的中间件
+    tthis.middlewares = []
+
+    this.server.on('request', (req, res) => {
+      // 先执行中间件逻辑
+			this.middlewares[0](req, res, () => {
+        this.middlewares[1](req, res, () => {
+          this.middlewares[2](req, res, () => {
+            // 真正处理请求
+            this.routes[req.method.toLowerCase() + req.url](req, res)
+          }
+        }
+      })
+    })
+  }
+  beforeEach(cb) {
+    this.middlewares.push(cb)
+  }
+}
+```
+
+- **对中间件调用逻辑进行优化**
+
+```js
+this.server.on('request', (req, res) => {
+  // 先执行中间件逻辑
+  const runMiddleware = (req, res, index, middlewares) => {
+  	if(index === middlewares.length) {
+      // 真正处理请求
+      this.routes[req.method.toLowerCase() + req.url](req, res)
+    } else {
+      middlewares[index](req, res, () => {
+        runMiddleware(req, res, index+1, middlewares)
+      })
+    }
+  }
+  runMiddleware(req, res, 0, this.middlewares)
+})
+```
+
+- server逻辑
+
+```js
+// server.js
+const Butter = require('./butter.js')
+const PORT = 9000
+
+const server = new Butter()
+
+// 【中间件】
+server.beforeEach((req, res, next) => {
+  console.log('first middleware')
+  next()
+})
+server.beforeEach((req, res, next) => {
+  console.log('second middleware')
+  next()
+})
+server.beforeEach((req, res, next) => {
+  console.log('third middleware')
+  next()
+})
+
+//【文件路由】
+server.route('get', '/', (req, res) => {
+  res.status(200).sendFile('./public/index.html', 'text/html')
+})
+
+server.listen(PORT, () => {
+  console.log('server listening on http://localhost:9000')
+})
+```
+
+
+
+
+
+#### 身份验证中间件
+
+```js
+server.beforeEach((req, res, next) => {
+  const routesToAuthenticate = ['GET /api/user', 'POST /api/post', 'DELETE /api/logout']
+  if(routesToAuthenticate.indexOf(req.method + ' ' + req.url) !== -1) {
+    if(req.headers.cookie) {
+      const token = req.headers.cookie.split('=')[1]
+			const session = SESSIONS.find(s => s.token === token)
+      if(session) {
+        req.userId = session.userId
+        return next()
+      }
+    } 
+    return res.status(401).json({error: 'unauthorized'})
+  } else {
+    next()
+  }
+})
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+### 疑问
+
+tcp连接，数据包，是代码里对应的chunk吗
+
+客户端每次write会触发服务端的data事件
+
+
+
+
+
+
+
+
 
 
 
