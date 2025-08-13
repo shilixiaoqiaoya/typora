@@ -1357,6 +1357,7 @@ proxy.listen(PORT, () => {
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250812102633550.png" alt="image-20250812102633550" style="zoom:40%;" />
 
 - 属性：Expires、HttpOnly、Secure
+- 指明 expires和max-age属性，将会在磁盘上保存
 
 ``` js
 // 存储用户token
@@ -1551,7 +1552,7 @@ server.beforeEach((req, res, next) => {
 
 
 
-### 疑问
+### ？疑问
 
 tcp连接，数据包，是代码里对应的chunk吗
 
@@ -1684,17 +1685,118 @@ Content-Type: text/html
 
 
 
+# UNIX
+
+- **unix操作系统，unix由c编写**
+- linux是受unix开发出来的开源操作系统，linus创建的，也发明了git
+- macos
+- Android
+- ios
+
+*【windows不是unix系统】*
+
+
+
+unix系统在终端通过open path -R 可以在文件目录中打开
+
+echo 在终端输出内容
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250812184847956.png" alt="image-20250812184847956" style="zoom:50%;" />
+
+pwd打印整个目录
+
+touch创建文件 mkdir创建目录
+
+
+
+### unix shells
+
+- shell是一个c应用程序，每开启终端的一个标签页，操作系统内核会开启一个shell程序
+- 
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813094810187.png" alt="image-20250813094810187" style="zoom:40%;" />
+
+
+
+在磁盘保存的可执行文件
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813113659385.png" alt="image-20250813113659385" style="zoom:67%;" />
+
+- 在终端输入命令会按下面顺序开始查找，「type 命令」可以得到命令的类型
+
+  - 【**Aliases**】：给一个命令添加别名，比如给node起别名为runplay，执行runplay和执行node效果相同
+
+  ```js
+  alias runplay='node'   // runplay is an alias for node
+  ```
+
+  - **【Functions】**：函数
+  - 【**Built-In Functions】**：内置函数
+    - echo   **`echo is a shell builtin`**
+  - 【**Path】：会挨个查找下列目录（全局路径变量），看目录下面是否有输入命令对应的unix可执行文件**
+    - node  **`node is /Users/tal/.volta/bin/node`**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813104746891.png" alt="image-20250813104746891" style="zoom:50%;" />
+
+```js
+console.log(process.env.PATH)  // 在node中可以通过process.env.PATH访问全局路径变量
+```
+
+
+
+- Path举例：输入ls，会在`/bin`文件夹下找到对应可执行文件并执行【输入`/bin/ls`也是相同效果】
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813105317767.png" alt="image-20250813105317767" style="zoom:50%;" />
 
 
 
 
 
+### child_process
+
+- 用于创建和管理子进程，允许在nodejs中执行系统命令
+- Spawn：衍生子进程，参数需要是unix可执行文件，也就是上面提到的path目录下的
+
+```js
+const { spawn } = require('child_process')
+
+const subprocess = spawn('ls') 
+const subprocess = spawn('ls', ['-l']) 
+const subprocess = spawn('zsh', ['./demo.sh']) 
+subprocess.stdout.on('data', (chunk) => {
+  console.log(chunk.toString('utf-8'))
+})
+```
+
+Spawn的参数需要是unix可执行文件，它会在全局路径变量中查找
+
+spawn不能执行ll，是因为ll是ls -lh 的别名，ls -lh是unix可执行文件
 
 
 
 
 
+- 将命令在shell中执行
 
+```js
+const { exec } = require('child_process')
+exec('ls -l', (err, stdout, stderr) => {
+  if(err) {
+    console.error(err)
+    return 
+  }
+  console.log(stdout)
+  console.log(stderr)
+})
+```
+
+- 
+
+
+
+最顶层进程是kernel_task，pid为0
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813102428741.png" alt="image-20250813102428741" style="zoom:100%;" />
 
 
 
