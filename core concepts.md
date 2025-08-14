@@ -1697,7 +1697,24 @@ Content-Type: text/html
 
 
 
-unix系统在终端通过open path -R 可以在文件目录中打开
+### 基础知识
+
+1、文件权限
+
+- 是否可读（r）、是否可写（w）、是否可执行（x）
+- 文件可执行的前提是需要有它的可读权限
+- 文件可执行，意味着可以通过
+
+```bash
+chmod u+x ./scripts.sh # 给文件添加可执行权限
+./scripts.sh  # 在终端输入文件名执行文件
+
+chmod u-r-w ./scripts.sh  # 移除文件的可读、可写权限
+```
+
+
+
+2、常用命令：
 
 echo 在终端输出内容
 
@@ -1705,24 +1722,26 @@ echo 在终端输出内容
 
 pwd打印整个目录
 
-touch创建文件 mkdir创建目录
+touch创建文件 
+
+mkdir创建目录
+
+unix系统在终端通过open path -R 可以在文件目录中打开
+
+
 
 
 
 ### unix shells
 
-- shell是一个c应用程序，每开启终端的一个标签页，操作系统内核会开启一个shell程序
+- shell是一个c应用程序，每开启一个终端，操作系统内核就会开启一个shell程序
 - 
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813094810187.png" alt="image-20250813094810187" style="zoom:40%;" />
 
 
 
-在磁盘保存的可执行文件
-
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813113659385.png" alt="image-20250813113659385" style="zoom:67%;" />
-
-- 在终端输入命令会按下面顺序开始查找，「type 命令」可以得到命令的类型
+- 在一个shell程序中，终端可以输入命令，会按下面顺序开始查找，「type 命令」可以得到命令的类型
 
   - 【**Aliases**】：给一个命令添加别名，比如给node起别名为runplay，执行runplay和执行node效果相同
 
@@ -1734,7 +1753,9 @@ touch创建文件 mkdir创建目录
   - 【**Built-In Functions】**：内置函数
     - echo   **`echo is a shell builtin`**
   - 【**Path】：会挨个查找下列目录（全局路径变量），看目录下面是否有输入命令对应的unix可执行文件**
+    - *unix可执行文件：二进制内容，已经被编译为机器代码的c程序，可供cpu直接执行*
     - node  **`node is /Users/tal/.volta/bin/node`**
+    - echo也有可执行文件，但是相对于内置函数echo，可执行文件执行创建一个新进程，占内存，太重了
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813104746891.png" alt="image-20250813104746891" style="zoom:50%;" />
 
@@ -1748,14 +1769,24 @@ console.log(process.env.PATH)  // 在node中可以通过process.env.PATH访问�
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813105317767.png" alt="image-20250813105317767" style="zoom:50%;" />
 
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813113659385.png" alt="在磁盘保存的unix可执行文件" style="zoom:67%;" />
+
+- 可执行文件每次执行，对应一个进程
+
+
+
 
 
 
 
 ### child_process
 
-- 用于创建和管理子进程，允许在nodejs中执行系统命令
-- Spawn：衍生子进程，参数需要是unix可执行文件，也就是上面提到的path目录下的
+- 用于创建和管理子进程，允许在nodejs中执行系统命令，执行系统命令时会开启一个进程
+- **Spawn：衍生子进程**
+  - **第一个参数需要是unix可执行文件**
+    - 如果是位于全局路径变量下的unix可执行文件，可以直接传命令名
+    - 如果不是，需要传unix可执行文件的路径
+  - 第二个参数是数组：传给unix可执行文件的参数列表(args)
 
 ```js
 const { spawn } = require('child_process')
@@ -1766,13 +1797,10 @@ const subprocess = spawn('zsh', ['./demo.sh'])
 subprocess.stdout.on('data', (chunk) => {
   console.log(chunk.toString('utf-8'))
 })
+
+// `process.pid` 获取到当前node进程id
+// `process.env` 获取到当前node进程的环境变量
 ```
-
-Spawn的参数需要是unix可执行文件，它会在全局路径变量中查找
-
-spawn不能执行ll，是因为ll是ls -lh 的别名，ls -lh是unix可执行文件
-
-
 
 
 
@@ -1790,33 +1818,78 @@ exec('ls -l', (err, stdout, stderr) => {
 })
 ```
 
-- 
-
-
-
-最顶层进程是kernel_task，pid为0
-
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813102428741.png" alt="image-20250813102428741" style="zoom:100%;" />
 
 
 
 
+### unix下进程管理
+
+- 最顶层进程是kernel_task，其pid为0
+- 其它进程都可以视为kernel_task进程的子进程
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813102428741.png" alt="image-20250813102428741" style="zoom:70%;" />
+
+- 每个进程都有启动其它进程的能力。比如bash进程
+
+  - 可以输入全局路径变量下的命令，开启子进程
+
+  - 可以输入unix可执行文件路径，开启子进程
+
+    Eg：bash进程通过内核去开启一个myapp子进程
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250814103641134.png" alt="image-20250814103641134" style="zoom:40%;" />
+
+- 在开启子进程时，可以传递参数
+
+  - 比如，在终端输入`node test.js a b c`时，unix可执行文件后面的 `test.js`、`a`、`b`、`c`就是`args`
+  - node进程可以通过`process.argv` 获取到参数数组， process.argv[0]是可执行文件的绝对路径
+
+  ```js
+  [
+    '/Users/tal/.volta/tools/image/node/24.2.0/bin/node',
+    '/Users/tal/Desktop/workspace/own/demo/unix.js',
+    'a',
+    'b',
+    'c'
+  ]
+  ```
+
+  
+
+- **利用node的spawn()去打开豆包程序**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250814164955711.png" alt="image-20250814164955711" style="zoom:70%;" />
+
+```js
+const { spawn } = require('child_process')
+
+const subprocess = spawn('/Applications/Doubao.app/Contents/MacOS/Doubao') 
+subprocess.stdout.on('data', (chunk) => {
+  console.log(chunk.toString('utf-8'))
+})
+```
 
 
 
 
 
+#### 环境变量
 
+- 每个进程有自己独立的环境变量空间，环境变量由进程创建而生成，随进程终止而销毁（存储在进程的内存空间
 
+- 在开启子进程时，默认情况下，父进程的所有环境变量都会传递给子进程，子进程可以修改
 
+- bash中定义环境变量： `export FOO='bar'`  foo是一个环境变量，此时开启node子进程
 
+```js
+console.log(process.env.FOO) // 'bar'
+process.env.FOO = 'baz'
+console.log(process.env.FOO) // 'baz'
+```
 
+bash中去掉环境变量 `unset FOO`
 
-
-
-
-
-
+bash中可以通过命令 `env` 获取当前shell进程的所有环境变量
 
 
 
