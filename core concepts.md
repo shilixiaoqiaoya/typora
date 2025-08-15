@@ -392,6 +392,14 @@ console.log(writableStream.writableLength)  // 6
 
 
 
+- 通过fs模块直接创建流【适用于大多常规需求】
+  - 通过filehandle创建流，需要注意要关闭filehandle，否则可能导致内存泄漏
+
+```js
+const fs = require('fs')
+fs.createWriteStream('./test.txt')  
+```
+
 
 
 
@@ -459,10 +467,20 @@ streamRead.on('data', (chunk) => {
 
 
 
+- 通过fs模块直接创建流【适用于大多常规需求】
+
+```js
+fs.createReadStream('./test.txt')  
+```
+
+
+
+
+
 #### pipe()
 
 - `readable.pipe(destination)`
-- **有背压控制**
+- **自动背压控制**
 - 支持链式，中间的流需要是既可读又可写的 
 
 ```js
@@ -1558,7 +1576,7 @@ tcp连接，数据包，是代码里对应的chunk吗
 
 客户端每次write会触发服务端的data事件
 
-
+可读流每次触发data事件，chunk是多少字节呢 是流的缓冲区大小吗
 
 
 
@@ -1720,13 +1738,23 @@ echo 在终端输出内容
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250812184847956.png" alt="image-20250812184847956" style="zoom:50%;" />
 
-pwd打印整个目录
+```js
+echo 'some thing' >temp.txt  // 保存内容到文件夹
+```
 
-touch创建文件 
+pwd 打印工作目录
 
-mkdir创建目录
+touch 新建文件 
 
-unix系统在终端通过open path -R 可以在文件目录中打开
+mkdir 新建目录
+
+open path -R 在文件目录中打开
+
+rm 删除文件
+
+cat 终端显示文件内容
+
+nano 打开文件（一个终端文本编辑器）
 
 
 
@@ -1935,15 +1963,17 @@ const content = fs.readFileSync(path.join(__dirname, './text.txt'))  // 保证�
 
 
 
+### 进程通信
 
-
-### 进程的标准i/o流
+#### 进程的标准i/o流【管道通信】
 
 - 在unix系统中，每个进程会关联三种标准I/O流，它们是进程通信的基础管道
 
+  stdin；stdout；stderr
+
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815105738952.png" alt="image-20250815105738952" style="zoom:40%;" />
 
-- 在bash中执行一个unix可执行文件，默认输入是终端-键盘，输出是终端-显示器
+- 在bash中执行一个unix可执行文件，unix可执行文件进程的默认输入是终端-键盘，输出是终端-显示器
 
 - 进程输入可以是一个文件，进程输出写入到一个文件
 
@@ -1955,13 +1985,14 @@ const content = fs.readFileSync(path.join(__dirname, './text.txt'))  // 保证�
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815105818661.png" alt="image-20250815105818661" style="zoom:40%;" />
 
-- 模拟一个node进程和一个node子进程通信：
+1、模拟一个node进程和一个node子进程通信：
 
 ```js
 // demo.js
 const subprocess = spawn("node", ["./subprocess.js"]);
 subprocess.stdout.on("data", (chunk) => {
   console.log(chunk.toString("utf-8"));
+  // 在node中console.log()本质上是stdout.write()
 });
 subprocess.stderr.on("data", (chunk) => {
   console.log(chunk.toString("utf-8"));
@@ -1978,17 +2009,74 @@ stdin.on('data', (chunk) => {
 })
 ```
 
+ 
 
-
-
-
-管道
+2、管道
 
 ```bash
 echo 'some thing' | tr 'a-z' 'A-Z'
 ```
 
-- echo进程的`stdout`成为了tr进程的`stdin`
+- echo进程的 `stdout` 成为了tr进程的 `stdin`
+
+
+
+3、其它相关bash命令
+
+- stdin；stdout；stderr对应的数字分别是0、1、2
+- 将node进程的stdout保存为stdout.txt文件，stderr保存为stderr.txt文件（会被保存在bash进程的当前工作目录下 
+  - 该命令是文件内容覆盖逻辑
+
+```bash
+node test.js 1>stdout.txt 2>stderr.txt
+```
+
+- 该命令是文件内容追加逻辑
+
+```js
+node test.js 1>>stdout.txt
+```
+
+- 将stdin.txt文件变成node进程的stdin
+
+```bash
+node test.js 0<stdin.txt
+```
+
+
+
+
+
+##### 模拟cat命令
+
+```bash
+node cat.js demo.txt
+```
+
+```js
+// cat.js
+const { stdin, stdout, argv, exit } = require('process')
+const fs = require('fs')
+const filepath = argv[2]
+if(filepath) {
+  const fileStream = fs.createReadStream(filepath)
+  fileStream.pipe(stdout)
+  fileStream.on('end', () => {
+    exit(0)
+  })
+}
+stdin.on('data', (chunk) => {
+  stdout.write(chunk.toString('utf8'))
+})
+```
+
+
+
+
+
+#### ipc sockets
+
+
 
 
 
