@@ -1773,6 +1773,15 @@ console.log(process.env.PATH)  // 在node中可以通过process.env.PATH访问�
 
 - 可执行文件每次执行，对应一个进程
 
+- 在shell对应的配置文件（macos以`./zshrc`为例），配置某个命令的别名，在所有终端都生效
+
+```js
+// 终端输入des希望进入Desktop文件夹
+
+alias des='cd ~/Desktop'
+type des  // des is an alias for cd ~/Desktop
+```
+
 
 
 
@@ -1897,6 +1906,30 @@ bash中可以通过命令 `env` 获取当前shell进程的所有环境变量
 
 
 
+### 文件系统
+
+- 根目录` /`
+  - 主目录：每个用户有各自的主目录 `~`，终端输入`cd`可进入当前用户的主目录
+- `.`表示当前目录，`..`表示父目录
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815094650726.png" alt="image-20250815094650726" style="zoom:40%;" />
+
+- 在衍生子进程时，除了参数和环境变量，父进程还会将它的当前工作目录传给子进程
+  - 在node中，可以通过`process.cwd()`访问父进程的当前工作目录
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815094712718.png" alt="image-20250815094712718" style="zoom:40%;" />
+
+- 使用fs内置模块处理文件时，文件路径如果是相对路径，是相对于cwd的，需要确保路径正确
+
+```js
+const fs = require('fs')
+const path = require('path')
+
+const content = fs.readFileSync('./text.txt', 'utf8')  // 易发生找不到文件的错误
+const content = fs.readFileSync(path.join(__dirname, './text.txt'))  // 保证文件路径正确
+
+// __dirname在cjs规范的模块中可以使用，esm规范需要使用其他
+```
 
 
 
@@ -1904,14 +1937,58 @@ bash中可以通过命令 `env` 获取当前shell进程的所有环境变量
 
 
 
+### 进程的标准i/o流
+
+- 在unix系统中，每个进程会关联三种标准I/O流，它们是进程通信的基础管道
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815105738952.png" alt="image-20250815105738952" style="zoom:40%;" />
+
+- 在bash中执行一个unix可执行文件，默认输入是终端-键盘，输出是终端-显示器
+
+- 进程输入可以是一个文件，进程输出写入到一个文件
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815105411754.png" alt="image-20250815105411754" style="zoom:40%;" />
+
+
+
+- 进程输入stdin可以是其他进程的输出stdout，利用这个可实现进程通信
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815105818661.png" alt="image-20250815105818661" style="zoom:40%;" />
+
+- 模拟一个node进程和一个node子进程通信：
+
+```js
+// demo.js
+const subprocess = spawn("node", ["./subprocess.js"]);
+subprocess.stdout.on("data", (chunk) => {
+  console.log(chunk.toString("utf-8"));
+});
+subprocess.stderr.on("data", (chunk) => {
+  console.log(chunk.toString("utf-8"));
+});
+subprocess.stdin.write('something from parent process')
+
+
+// subprocess.js
+const { stdin, stdout, stderr } = require('process')
+stdout.write('this is some text that i want')
+stderr.write('this is some text that i may not want')
+stdin.on('data', (chunk) => {
+  console.log(chunk.toString('utf8'))
+})
+```
 
 
 
 
 
+管道
 
+```bash
+echo 'some thing' | tr 'a-z' 'A-Z'
+```
 
-
+- echo进程的`stdout`成为了tr进程的`stdin`
 
 
 
