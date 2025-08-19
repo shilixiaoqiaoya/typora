@@ -1566,9 +1566,7 @@ server.beforeEach((req, res, next) => {
 
 
 
-
-
-
+### ？静态资源
 
 ### ？疑问
 
@@ -1578,7 +1576,7 @@ tcp连接，数据包，是代码里对应的chunk吗
 
 可读流每次触发data事件，chunk是多少字节呢 是流的缓冲区大小吗
 
-
+看下cpeak封装
 
 
 
@@ -1963,11 +1961,11 @@ const content = fs.readFileSync(path.join(__dirname, './text.txt'))  // 保证�
 
 
 
-### 进程通信
+### 进程通信【数据传输】
 
-#### 进程的标准i/o流【管道通信】
+#### 管道通信
 
-- 在unix系统中，每个进程会关联三种标准I/O流，它们是进程通信的基础管道
+- 在unix系统中，每个进程会关联**三种标准I/O流**，它们是进程通信的基础管道
 
   stdin；stdout；stderr
 
@@ -2074,7 +2072,182 @@ stdin.on('data', (chunk) => {
 
 
 
-#### ipc sockets
+#### ipc
+
+- **Inter-process communication** 
+- 在内存中移动数据来进行通信  
+
+```JS
+// 进程a
+const net = require('net')
+const SOCKET_PATH = '/tmp/node_socket'  // path用于指定unix domain socket的路径，客户端会连接到该socket文件
+
+const client = net.createConnection({ path: SOCKET_PATH })   
+client.on('connect', () => {
+  console.log('connected to server')
+})
+client.on('data', (data) => {
+  console.log('received from c server')
+})
+```
+
+```js
+// 进程b
+const net = require('net')
+const server = net.createServer()
+server.on("connection", (socket) => {
+  socket.write("hello i am server");
+})
+	// 开启服务器进程时会创建socket文件 /tmp/node_socket
+server.listen(SOCKET_PATH, () => {
+  console.log('ipc服务端')
+})
+```
+
+
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250819141046901.png" alt="image-20250819141046901" style="zoom:50%;" />
+
+
+
+共享内存通信
+
+- 两个进程共享同一块内存空间中的数据，数据不需要移动
+
+
+
+
+
+### cluster
+
+- 两个浏览器标签页，1个请求`/`，1个请求`/heavy`，node进程处理`/heavy`请求耗时，导致另一个标签页的` /`请求也慢
+
+```js
+server.route('get', '/', (req, res) => {
+  res.json({ msg: 'this is some text' })
+})
+server.route('get', '/heavy', (req, res) => {
+  for(let i=0; i<10000000000; i++) {}
+  res.json({ msg: 'this is very heavy' })
+})
+```
+
+- 如何解决？
+  - 为充分利用cpu的内核，可以由node进程fork出多个子进程（clone父node进程）
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250819141213767.png" alt="image-20250819141213767" style="zoom:50%;" />
+
+	- `cluster.isPrimary` 当前进程是父进程返回true，否则返回false
+	- `cluster.fork()`是特殊的`spawn()`，只衍生node子进程
+
+```js
+const cluster = require('cluster')
+const os = require('os')
+if(cluster.isPrimary) {
+  console.log(`this is parent process with pid ${process.pid}`)
+  const coresCount = os.availableParallelism()
+  // cpu有几个内核，衍生几个子进程
+  for(let i=0; i<coresCount; i++) {
+    const worker = cluster.fork()
+    console.log(`the parent spawned a new child with pid ${worker.process.pid}`)
+  }
+  // 当一个子进程退出时，重新衍生一个子进程
+  cluster.on('exit', (worker, code, signal) => {
+    console.log(`${worker.process.pid} process was killed`)
+    cluster.fork()
+  })
+} else {
+  console.log('this is child process')
+  require('./server.js')
+}
+```
+
+- 父进程负责自动分配流量，默认策略是将请求按顺序分配给子工作进程
+- 子进程负责处理请求
+- **父子进程通信【基于ipc实现】**
+
+```js
+// 父进程
+worker.send()  // worker代表某一子进程
+	 // 监听特定进程
+worker.on('message', (msg) => { 
+  console.log(msg)
+})
+	 // 监听所有子进程
+cluster.on('message', (worker, message) => {
+  console.log(`工作进程 ${worker.process.pid} 发送消息:`, message);
+});
+
+// 子进程
+process.on('message', (msg) => {
+  console.log(msg)
+})
+process.send()
+```
+
+- 当父进程只需要分配流量时，可以使用pm2来代替
+  -  `pm2 start server.js -i max` 根据cpu核心数启动最大数量的实例，提高并发处理能力
+  - 某个实例崩溃，pm2会自动重启
+
+
+
+
+
+# video editor
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
