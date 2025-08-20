@@ -2195,19 +2195,104 @@ process.send()
 
 # video editor
 
+客户端上传视频
+
+```js
+const uploadVideo = async (req, res) => {
+  const specifiedFileName = req.headers.filename  // 文件名
+  const extension = path.extname(specifiedFileName).substring(1).toLowerCase()  // 文件后缀
+  const name = path.parse(specifiedFileName).name  // 文件名字
+  const videoId = crypto.randomBytes(4).toString('hex')  // 作为文件夹名字
+  
+  try {
+    await fs.mkdir(`./storage/${videoId}`)
+    const fullPath = `./storage/${videoId}/original.${extension}`  
+    const fileHandle = await fs.open(fullPath, 'w')
+    const fileStream = fileHandle.createWriteStream()
+    await pipeline(req, fileStream)
+    await fileHandle.close()
+  } catch(e) {
+    // 使用pipeline方法，当客户端取消上传时，会进入catch语句，此时可以将创建的文件夹删除
+    deleteFolder(`./storage/${videoId}`)
+  }
+}
+```
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250820142424994.png" alt="image-20250820142424994" style="zoom:30%;" />
+
+
+
+客户端获取资源
+
+```js
+// 在线预览图片
+server.route('get', '/cover.jpg', async (req, res) => {
+  const fileHandle = await fs.open(`./storage/303bd05c/cover.jpg`, 'r')
+  const stat = await fileHandle.stat()
+  const fileStream = fileHandle.createReadStream()
+  res.setHeader('Content-Type', 'image/jpg')
+  res.setHeader('Content-Length', stat.size)
+  await pipeline(fileStream, res)
+  await fileHandle.close()
+}
+
+// 前端下载视频，下载关键响应头 Content-Disposition
+server.route('get', '/original.mp4', async (req, res) => {
+  const fileHandle = await fs.open(`./storage/303bd05c/original.mp4`, "r");
+  const stat = await fileHandle.stat();
+  const fileStream = fileHandle.createReadStream();
+  res.setHeader("Content-Type", "video/mp4");
+  res.setHeader("Content-Length", stat.size);
+  res.setHeader("Content-Disposition", "attachment; filename=video.mp4");
+  await pipeline(fileStream, res);
+  await fileHandle.close();
+})
+```
+
+Content-Disposition
+
+- http响应头，用于指示浏览器如何处理响应内容
+
+  - `inline`：默认值，在页面显示内容
+
+  - `attachment`：告知浏览器将内容作为附件下载
+
+    
 
 
 
 
 
+### 视频
+
+容器格式（MOV）
+
+- 就像一个盒子，可以装载多种类型的媒体流
+  - 视频流，编码器 H.265
+  - 音频流，编码器AAC
+  - 字幕流，编码UTF-8
+- 不同的容器对于同一种流（如video）所支持的编码器不同
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250820150703269.png" alt="image-20250820150703269" style="zoom:40%;" />
 
 
 
+### ffmpeg
 
+- 可以对视频新增流，删除流
+- 可以更改流的编码器
 
+```js
+// 转换视频格式
+ffmpeg -i a.mp4 a.mov
 
+// 查看视频详细信息
+ffprobe -v quiet -print_format json -show_format -show_streams one.mp4>probe.txt
+```
 
-
+- 可以获取视频的一帧
+- 可以获取视频的详细信息，尺寸
+- 
 
 
 
