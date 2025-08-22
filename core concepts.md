@@ -2218,9 +2218,7 @@ const uploadVideo = async (req, res) => {
 }
 ```
 
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250820142424994.png" alt="image-20250820142424994" style="zoom:30%;" />
-
-
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250820142424994.png" alt="image-20250820142424994" style="zoom:25%;" />
 
 客户端获取资源
 
@@ -2291,8 +2289,9 @@ ffprobe -v quiet -print_format json -show_format -show_streams one.mp4>probe.txt
 ```
 
 - 可以获取视频的一帧
-- 可以获取视频的详细信息，尺寸
-- 
+- 可以获取视频的详细信息，各种流的详细信息、视频分辨率等
+- 可以从视频中提取音频
+- 可以对视频大小做裁剪
 
 
 
