@@ -1855,6 +1855,12 @@ exec('ls -l', (err, stdout, stderr) => {
 
 
 
+- fork()
+  - 基于spawn，只能衍生node进程
+  - cluster.fork()，衍生自身作为子进程
+
+
+
 
 
 ### unix下进程管理
@@ -2193,6 +2199,8 @@ process.send()
 
 
 
+
+
 # video editor
 
 客户端上传视频
@@ -2301,15 +2309,48 @@ ffprobe -v quiet -print_format json -show_format -show_streams one.mp4>probe.txt
 
 
 
+每个进程有nice值，操作系统会为nice值更低的进程分配更多的cpu
+
+图像处理程序 imageMagick
+
+pdf处理程序 poppler
+
+计算机视觉程序 opencv
+
+语音转文本 whisper
 
 
 
 
 
+# Compression
 
+- 减少文件的比特数
 
+- 无损压缩：减少比特数而不丢失任何信息
+- 有损压缩
 
+### zlib
 
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250828192143121.png" alt="image-20250828192143121" style="zoom:50%;" />
+
+```js
+const zlib = require('zlib')
+const fs = require('fs')
+
+const src = fs.createReadStream('./before-compress.txt')
+const dest = fs.createWriteStream('./after-compress.txt')
+src.pipe(zlib.createGzip()).pipe(dest)
+
+// zlib.createGzip() 是一个转换流
+```
+
+- 使用Gzip压缩文件，属于无损压缩
+- 使用gunzip解压使用Gzip算法压缩的数据
+
+```js
+zlib.createGunzip()
+```
 
 
 
