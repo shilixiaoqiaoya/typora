@@ -1969,7 +1969,11 @@ const content = fs.readFileSync(path.join(__dirname, './text.txt'))  // 保证�
 
 ### 进程通信【数据传输】
 
-#### 管道通信
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902120217961.png" alt="image-20250902120217961" style="zoom:40%;" />
+
+#### 1、消息传递
+
+##### ① 管道通信
 
 - 在unix系统中，每个进程会关联**三种标准I/O流**，它们是进程通信的基础管道
 
@@ -2051,7 +2055,7 @@ node test.js 0<stdin.txt
 
 
 
-##### 模拟cat命令
+###### 模拟cat命令
 
 ```bash
 node cat.js demo.txt
@@ -2078,9 +2082,8 @@ stdin.on('data', (chunk) => {
 
 
 
-#### ipc
+##### ② 套接字
 
-- **Inter-process communication** 
 - 在内存中移动数据来进行通信  
 
 ```JS
@@ -2116,9 +2119,28 @@ server.listen(SOCKET_PATH, () => {
 
 
 
-共享内存通信
+
+
+- **消息传递：进程间通过操作系统所在的内存地址空间来互相传递数据，进行频繁的系统调用**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902114923355.png" alt="image-20250902114923355" style="zoom:50%;" />
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902114928500.png" alt="image-20250902114928500" style="zoom:50%;" />
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902115204093.png" alt="image-20250902115204093" style="zoom:50%;" />
+
+
+
+
+
+#### 2、共享内存
 
 - 两个进程共享同一块内存空间中的数据，数据不需要移动
+- **共享内存：只需要两次系统调用，相较于消息传递，性能高**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902114853267.png" alt="image-20250902114853267" style="zoom:50%;" />
+
+
 
 
 
@@ -2307,8 +2329,6 @@ ffprobe -v quiet -print_format json -show_format -show_streams one.mp4>probe.txt
 
 
 
-
-
 每个进程有nice值，操作系统会为nice值更低的进程分配更多的cpu
 
 图像处理程序 imageMagick
@@ -2327,8 +2347,7 @@ pdf处理程序 poppler
 
 - 减少文件的比特数
 
-- 无损压缩：减少比特数而不丢失任何信息
-- 有损压缩
+
 
 ### zlib
 
@@ -2356,6 +2375,62 @@ zlib.createGunzip()
 
 
 
+### 有损压缩 + 无损压缩
+
+- 无损压缩：减少比特数而不丢失任何信息，可以复原到初始文件
+  - Png
+  - 压缩为zip格式
+- 有损压缩：会丢失文件信息，会将人眼注意不到的细节丢失
+  - jpeg、mp3、aac、H.264
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902093444186.png" alt="image-20250902093444186" style="zoom:30%;" />
+
+- **通常文本采用无损压缩，图片、视频、音频等媒体文件采用有损压缩**
+  - 不要对已经压缩过的文件进行无损压缩，文件大小变化不会很大，是无意义操作
+- 压缩本质是寻找重复的内容，如果文件体积过小，没有重复内容，压缩后体积反而会变大，且耗费cpu计算
+  - 压缩视频：寻找多帧中长时间静止的像素点，复用第一次出现的
+  - 压缩图片：图片的可预测性越高，压缩比越大
+
+- Https + 压缩会给黑客攻击机会，所以不要对敏感数据做压缩
+
+  
+
+
+
+
+
+### 应用于网络
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902094059275.png" alt="image-20250902094059275" style="zoom:50%;" />
+
+- 在代码中启用压缩
+
+```js
+ // 【处理文件路由】
+res.sendFile = async (path, mime) => {
+  const fileHandle = await fs.open('./text-compressed.gz', 'r')
+  const fileStream = fileHandle.createReadStream()
+  res.setHeader('Content-Type', mime)
+  res.setHeader('Content-Encoding', 'gzip')
+  fileStream..pipe(zlib.createGzip()).pipe(res)
+}
+
+// 【处理json路由】
+res.json = data => {
+  res.setHeader('Content-Type', 'application/json')
+  res.setHeader('Content-Encoding', 'gzip')
+  zlib.gzip(JSON.stringify(data), (err, buffer) => {
+    if(err) return res.end()
+    res.end(buffer)
+  })
+}
+```
+
+
+
+- 通常有一个**Nginx代理服务来压缩响应体**
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902094259032.png" alt="image-20250902094259032" style="zoom:50%;" />
 
 
 
@@ -2363,18 +2438,41 @@ zlib.createGunzip()
 
 
 
+- 降低文件大小，可以对文件缩小和压缩
+
+  - 缩小：对图片做裁剪，会改变分辨率，不属于有损压缩
+
+  - 压缩：对图片做有损压缩，不会改变分辨率
 
 
 
 
 
 
+# 线程thread
+
+### node处理请求 vs 其他语言处理请求
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902111337406.png" alt="image-20250902111337406" style="zoom:40%;" />
 
 
 
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902111344762.png" alt="image-20250902111344762" style="zoom:40%;" />
 
 
 
+### 进程状态
 
+- 就绪态：进程获得了除cpu之外的所有必要资源，等待cpu调度执行
+- 运行态：进程正在cpu上执行
+- 阻塞态：等待io操作完成
 
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902111544248.png" alt="image-20250902111544248" style="zoom:50%;" />
+
+- 多个进程共享cpu如何保证安全性和正确性：上下文切换
+
+  - 为当前执行进程捕捉快照，在下次获得cpu使用权时，进行数据恢复
+  - <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902114811794.png" alt="image-20250902114811794" style="zoom:50%;" />
+
+  <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902113801926.png" alt="image-20250902113801926" style="zoom:70%;" />
 
