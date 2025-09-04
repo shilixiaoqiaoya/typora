@@ -2469,10 +2469,252 @@ res.json = data => {
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902111544248.png" alt="image-20250902111544248" style="zoom:50%;" />
 
-- 多个进程共享cpu如何保证安全性和正确性：上下文切换
+- **多个进程共享cpu如何保证安全性和正确性：上下文切换**
 
   - 为当前执行进程捕捉快照，在下次获得cpu使用权时，进行数据恢复
   - <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902114811794.png" alt="image-20250902114811794" style="zoom:50%;" />
 
   <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902113801926.png" alt="image-20250902113801926" style="zoom:70%;" />
+
+
+
+
+
+- 当一个进程有两个线程且线程分别在两个cpu核心上运行时，此时该进程的cpu利用率是200%
+- unix上，一个cpu core的使用率是100%
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902144843524.png" alt="image-20250902144843524" style="zoom:50%;" />
+
+
+
+
+
+### worker_threads
+
+- node衍生新线程
+
+```js
+const { Worker } = require('worker_threads')
+const a = 400
+const thread = new Worker('./calc.js')  // 该文件执行在另一个线程中
+console.log(a)  // 400
+
+// calc.js
+const a = 1000
+console.log(a)  // 1000
+```
+
+
+
+- `while(true) {}`会阻塞主线程
+
+```js
+// 不衍生线程
+setTimeout(() => {
+  fs.writeFile('./text.txt', 'this is some text', (err) => {
+    if(err) return console.log(err)
+    console.log('file created successfully')
+  })
+}, 3000)
+while(true) {}
+```
+
+```js
+// 衍生线程
+const { Worker } = require('worker_threads')
+const thread = new Worker('./calc.js')  // 该文件执行在另一个线程中
+while(true) {}
+
+// calc.js
+setTimeout(() => {
+  fs.writeFile('./text.txt', 'this is some text', (err) => {
+    if(err) return console.log(err)
+    console.log('file created successfully')
+  })
+}, 3000)
+```
+
+
+
+
+
+#### workerData
+
+- 创建线程时可以传递workerData属性
+
+```js
+const { Worker } = require('worker_threads')
+const thread = new Worker('./calc.js', { workerData: xxx})
+
+// calc.js
+const { workerData } = require('worker_threads')
+console.log(workerData)  // xxx
+```
+
+
+
+
+
+#### MessageChannel()
+
+- `MessageChannel()`方法生成的两个port可以相互通信
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250904113421421.png" alt="image-20250904113421421" style="zoom:60%;" />
+
+```js
+import { MessageChannel } = require('worker_threads')
+const { port1, port2 } = new MessageChannel()
+port1.postMessage({ name: 'joe' })
+port2.postMessage({ name: 'why' })
+port1.on('message', (msg) => {
+  console.log('msg received on port1': msg)
+})
+port2.on('message', (msg) => {
+  console.log('msg received on port2': msg)
+})
+```
+
+
+
+
+
+#### 线程通信
+
+- 将其中一个port以workerData传给另一个线程，就可以实现线程之间的通信
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250904113852095.png" alt="image-20250904113852095" style="zoom:50%;" />
+
+```js
+// 实现两个worker thread的通信
+const { port1, port2 } = new MessageChannel()
+const thread1 = new Worker('./calc.js', { workerData: {port: port1}, transferList: [port1] })
+const thread2 = new Worker('./calc.js', { workerData: {port: port2}, transferList: [port2] })
+
+// 实现主线程和各个worker thread的通信
+const channel1 = new MessageChannel()
+const channel2 = new MessageChannel()
+const thread1 = new Worker('./calc.js', { workerData: {port: channel1.port2}, transferList: [channel1.port2] })
+const thread2 = new Worker('./calc.js', { workerData: {port: channel2.port2}, transferList: [channel2.port2] })
+```
+
+- 实现主线程和worker thread的通信
+
+```js
+const thread = new Worker('./calc.js')
+thread.on('message', (msg) => {
+  console.log('main thread got': msg)
+})
+thread.postMessage({name: 'joe'})
+
+// calc.js
+import { parentPort } = require('worker_threads')
+parentPort.postMessage('some text')
+parentPort.on('message', (msg) => {
+  console.log('worker thread got': msg)
+})
+```
+
+
+
+
+
+#### Multi-threads
+
+对于cpu密集型任务，多线程相对单线程会缩短执行时间
+
+- 生成质数、图/音/视频处理、加解密、压缩【线程处于运行态】
+
+对于io密集型任务，node本身处理的很好
+
+- 进程通信、处理网络请求（网卡）、读写文件【线程处于sleep态】
+
+
+
+- node主线程应该执行轻量级任务，能高效调度（不要阻塞主线程）
+  - 执行重量级任务，程序计数器不能移动（阻塞）
+- 重量级耗时（cpu密集型任务）任务交由worker threads执行
+
+
+
+使用cluster，有可能所有进程的主线程都在执行重量级任务，没有进程来处理轻量级请求
+
+所以可以利用worker thread来处理重量级任务，主线程处理轻量级请求
+
+每个重量级任务的请求都会衍生worker thread来处理，所以要注意大量的恶意heavy请求，它会衍生大量的线程
+
+```js
+const { Worker } = require('worker_threads')
+server.route('get', '/api/primes', (req, res) => {
+  const count = Number(req.params.get('count'))    
+  let startingNumber = BigInt(req.params.get('start'))
+  
+  const start = performance.now() // 记录开始时间
+  if(startingNumber < BigInt(Number.MAX_SAFE_INTEGER)) {
+    startingNumber = Number(startingNumber)
+  }
+  
+  // 添加5s超时处理
+  const t = setTimeout(() => {
+    // 终止线程
+    worker.terminate()  
+    res.status(408).json({ message: 'request time out'})
+  }, 5000)
+  
+  // 衍生worker线程
+  const worker = new Worker('./calc.js', { workerData: {count, startingNumber} })
+  worker.on('message', (primes) => {
+    clearTimeout(t)
+    res.json({
+      primes,
+      time: ((performance.now() - start)/1000).toFixed(2)
+    })
+  })
+})
+
+// calc.js
+const { workerData, parentPort } = require('worker_threads')
+const generatePrimes = require('./prime-generator')
+const primes = generatePrimes(workerData.count, workerData.startingNumber)
+parentPort.postmessage(primes)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
