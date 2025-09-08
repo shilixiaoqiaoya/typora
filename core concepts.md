@@ -2620,27 +2620,17 @@ parentPort.on('message', (msg) => {
 
 #### Multi-threads
 
-对于cpu密集型任务，多线程相对单线程会缩短执行时间
-
-- 生成质数、图/音/视频处理、加解密、压缩【线程处于运行态】
-
-对于io密集型任务，node本身处理的很好
-
-- 进程通信、处理网络请求（网卡）、读写文件【线程处于sleep态】
-
-
-
-- node主线程应该执行轻量级任务，能高效调度（不要阻塞主线程）
-  - 执行重量级任务，程序计数器不能移动（阻塞）
+- node主线程应该执行轻量级任务，能高效调度【不要阻塞主线程】
+  - 执行重量级任务时，程序计数器不能移动（阻塞）
 - 重量级耗时（cpu密集型任务）任务交由worker threads执行
 
 
 
 使用cluster，有可能所有进程的主线程都在执行重量级任务，没有进程来处理轻量级请求
 
-所以可以利用worker thread来处理重量级任务，主线程处理轻量级请求
+所以每个进程可以利用worker thread来处理重量级任务，主线程处理轻量级请求
 
-每个重量级任务的请求都会衍生worker thread来处理，所以要注意大量的恶意heavy请求，它会衍生大量的线程
+每个重量级任务的请求都会衍生worker thread来处理，所以要注意处理大量的恶意heavy请求，它会衍生大量的线程
 
 ```js
 const { Worker } = require('worker_threads')
@@ -2684,33 +2674,252 @@ parentPort.postmessage(primes)
 
 
 
+#### thread pool
+
+`UV_THREADPOOL_SIZE`  线程池中线程数量
+
+异步文件操作api、异步加密api、异步压缩api
+
+
+
+对于cpu密集型任务，多线程相对单线程会缩短执行时间
+
+- 生成质数、图/音/视频处理、加解密、压缩【线程处于运行态】
+
+对于io密集型任务，node本身处理的很好
+
+- 进程通信、处理网络请求（网卡）、读写文件【线程处于sleep态】
+  - 异步压缩、异步加密？？？
+  - promise.all()  并行本质是多线程吗？太多的promise同时执行，会耗尽内存
 
 
 
 
 
+利用worker_threads模块开发线程池
+
+```js
+const Pool = require('./pool.js')
+const numWorkers = 4
+const pool = new Pool(numWorkers)
+
+pool.submit('generatePrimes', { count:2, start:1_000_000 }, (primes) => console.log(primes))
+```
+
+
+
+```js
+// pool.js
+const { Worker } = require('worker_threads')
+class Pool {
+  constructor(threadCount) {
+    this.threadCount = threadCount
+    this.threads = []   // 所有worker threads
+    this.idleThreads = []  // 空闲worker threads
+    this.scheduledTasks = []
+    for(let i=0; i<threadCount; i++) {
+      this.spawnThread()
+    }
+  }
+  spawnThread() {
+    const worker = new Worker('./calc.js')
+    // worker任务完成时会监听到message事件
+    worker.on('message', (res) => {
+      this.idleThreads.push(worker)
+      // 执行task对应回调
+      worker.currentTask.callback && worker.currentTask.callback(res)
+      this.runNextTask()
+    })
+    this.threads.push(worker)
+    this.idleThreads.push(worker)
+  }
+  
+  submit(taskName, options, callback) {
+    this.scheduledTasks.push({taskName, options, callback})  
+    this.runNextTask()
+  }
+  
+  runNextTask() {
+    if(this.scheduledTasks.length > 0 && this.idleThreads.length > 0) {
+      const { taskName, options, callback } = this.scheduledTasks.shift()
+      const worker = this.idleThreads.shift()
+      worker.currentTask = { taskName, options, callback }  // 将worker正在执行的任务挂载在worker对象上
+      worker.postMessage({ taskName, options })
+    }
+  }
+}
+module.exports = Pool
+```
+
+
+
+```js
+// calc.js
+const { parentPort } = require('worker_threads')
+const generatePrimes = require('./prime-generator')
+
+parentPort.on('message', ({ taskName, options }) => {
+  switch(taskName) {
+    case 'generatePrimes':
+      const primes = generatePrimes(options.count, options.start)
+      parentPort.postMessage(primes)
+      break
+    default:
+      parentPort.postMessage('unknown task')
+  }
+})
+```
+
+
+
+- 问题一：当submit了大量的任务，且任务的执行时间短时，cpu利用率低，没有达到预期的100%
+  - 主线程执行大量的回调，事件循环一直被激活，会造成主线程阻塞（程序计数器动不了
+
+- 事件循环利用率：`performance.eventLoopUtilization()` 
+
+  - ```js
+    idle:
+    active:
+    utilization: 
+    ```
+
+  - 
 
 
 
 
 
+#### 事件循环
+
+1、第一阶段
+
+- pc程序计数器从上到下移动
+- 主线程将异步任务交给libuv线程池的线程
+- 当pc移动到第 5 行时，遇到process.nexttick，将回调推入nexttick & microtask queues
+
+2、第二阶段
+
+- pc移动到最底部，会执行nexttick & microtask queues 中的所有回调函数
+  - process.nextTick()
+  - microtask ==》 promise.resolve() 
+  - **优先级极高，在主线程执行另一个回调或进入下一个队列前执行**
+
+3、第三阶段
+
+- **事件循环建立**
+
+- libuv线程完成异步任务，将对应回调推入到 callback queues，主线程将回调函数挨个弹出并执行
+  - 弹出 settimeout CB，此时pc会移动至第 4 行
+  - 弹出 write CB, pc会移动至第 2 行
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250908103627368.png" alt="image-20250908103627368" style="zoom:40%;" />
+
+check ==》setImmediate
+
+timer ==》 setTimeout
+
+poll ==》 fs
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250908140744776.png" alt="image-20250908140744776" style="zoom:40%;" />
+
+
+
+```js
+const { performance } = require("perf_hooks");
+for (let i = 0; i < 10_000_000_000_000; i++) {
+  if (i % 100_000_000 === 0) {
+    console.log(performance.eventLoopUtilization());
+  }
+}
+// { idle:0, active:0, utilization: 0} 三个值都是0
+主线程执行代码，处于第一阶段
+```
+
+```js
+setImmediate(() => {
+  for (let i = 0; i < 10_000_000_000_000; i++) {
+    if (i % 100_000_000 === 0) {
+      console.log(performance.eventLoopUtilization());
+    }
+  }
+}) 
+// { idle:0, active:1154, utilization: 1} 
+// { idle:0, active:1243, utilization: 1} active越来越大，idle为0，utilization为1 
+callbak queues, 处于第三阶段，事件循环的活跃状态
+```
+
+```js
+process.nextTick(() => {
+  for (let i = 0; i < 10_000_000_000_000; i++) {
+    if (i % 100_000_000 === 0) {
+      console.log(performance.eventLoopUtilization());
+    }
+  }
+}) 
+// { idle:0, active:0, utilization: 0} 三个值都是0
+nextTick queue，处于第二阶段，在事件循环之前
+```
 
 
 
 
 
+例子一
+
+```js
+setTimeout(() => {
+  console.log('A')
+})
+setTimeout(() => {
+  setImmediate(() => {
+    console.log('D')
+  })
+  process.nextTick(() => {
+    console.log('B')
+  })
+})
+setTimeout(() => {
+  console.log('C')
+})
+
+// ABCD 或 ABDC
+```
 
 
 
 
 
+例子二
 
+setImmediate的执行时机
 
+- 在非i/o回调中，下一个tick的check阶段执行
 
+```js
+setTimeout(() => {
+  console.log('A')
+})
+setImmediate(() => {
+  console.log('B')
+})
 
+// AB 或 BA
+```
 
+- 在i/o回调中，当前tick的check阶段执行
 
-
+```js
+const fs = require("fs");
+fs.readFile("./demo.txt", (err, data) => {
+  setTimeout(() => {
+    console.log("B");
+  }, 0);
+  setImmediate(() => {
+    console.log("A");
+  });
+});
+// AB
+```
 
 
 
