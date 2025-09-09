@@ -1481,6 +1481,115 @@ panel.style = `transform: translate3d(${newX}px, ${newY}px, 0)`
 
 ### 事件循环
 
+#### 浏览器
+
+- **浏览器执行前端构建产物时，会有多个script文件**
+- **多个脚本文件是在同一个主线程和同一个事件循环的调度之下**
+  - 每个脚本的同步代码会在上一个脚本执行完毕后，立即在主线程上执行
+  - 每个脚本的异步操作，对应回调会被放入同一个事件循环的微任务或宏任务队列中
+
+```js
+console.log('Script A - Sync Code Start');
+// 定义一个全局变量
+window.sharedData = 'From A';
+// 设置一个宏任务
+setTimeout(() => {
+    console.log('Macrotask from A');
+}, 0);
+// 设置一个微任务
+Promise.resolve().then(() => {
+    console.log('Microtask from A');
+});
+console.log('Script A - Sync Code End');
+
+console.log('Script B - Sync Code Start');
+console.log('Accessed:', window.sharedData); 
+window.sharedData = 'Modified by B';
+console.log("modified:", window.sharedData);
+setTimeout(() => {
+    console.log('Macrotask from B');
+}, 0);
+Promise.resolve().then(() => {
+    console.log('Microtask from B');
+});
+console.log('Script B - Sync Code End');
+
+// 输出：
+Script A - Sync Code Start
+Script A - Sync Code End
+Script B - Sync Code Start
+From A
+Modified by B
+Script B - Sync Code End
+Microtask from A
+Microtask from B
+Macrotask from A
+Macrotask from B
+```
+
+- 当所有脚本的同步代码执行完，主线程进入无限的事件循环，持续检查队列并执行任务
+- 一个tick有三个阶段
+  - ![image-20250909180954159](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250909180954159.png)
+  - 清空微任务队列
+    - 优先级很高，在执行微任务过程产生了新的微任务，会在当前回合被一致执行
+    - 如果微任务不断产生微任务，微任务队列永远不清空，阻塞主线程，会导致渲染会被无限推迟
+  - 判断是否需要渲染
+    - 浏览器以60帧每秒的频率更新页面，约16.7ms一帧
+    - 如果到了需要渲染的时机，浏览器会执行以下工作
+      - 执行`requestAnimationFrame`回调，是更新动画的最佳位置
+      - style、layout、paint：将更新的内容真正显示到屏幕上
+    - 如果不需要渲染，则跳过此步骤
+    - 当主线程被微任务、长任务阻塞时，实际帧率会下降（掉帧）
+  - 执行一个宏任务
+    - 每个tick只执行一个宏任务
+
+- 如果任务队列都为空，并且没有渲染工作需要做，事件循环不会疯狂空转浪费cpu资源，它会进入一种低功耗的sleep状态，直到被外部事件（用户点击、网络请求返回）唤醒，一旦唤醒，它会将对应的任务加入队列，继续下一轮循环
+
+
+
+
+
+
+
+#### 实现动画
+
+**1、requestAnimationFrame**
+
+- 由浏览器根据显示器刷新率自动调度	
+  - 对于60Hz屏幕，`rAF` 约16.7ms调用一次；120Hz屏幕则约8.3ms一次，无需开发者干预。
+- 当页面隐藏（如切到其他标签页）时，`rAF` 自动停止回调，节省CPU和电量。
+
+```js
+function animate() {
+  element.style.left = (parseFloat(element.style.left) + 1) + 'px';
+  requestAnimationFrame(animate); // 递归调用
+}
+requestAnimationFrame(animate); // 启动动画
+```
+
+
+
+**2、setTimeout**
+
+- 固定时间节奏，无视浏览器渲染节奏，导致掉帧
+- 当页面隐藏时，`setTimeout` 会继续执行，导致不必要的资源消耗。
+
+```js
+function animate() {
+  element.style.left = (parseFloat(element.style.left) + 1) + 'px';
+  setTimeout(animate, 16); // 固定16ms间隔
+}
+animate();
+```
+
+
+
+
+
+
+
+#### 另一种观点
+
 - 执行流程
   - 执行一个宏任务
   - 清空宏任务关联的微任务队列
@@ -1514,7 +1623,7 @@ Promise.resolve().then(() => console.log('promise'))
 - 时间到达后
   - **定时器线程会将回调函数放入宏任务队列**
 - 事件循环处理
-  - **当调用栈为空时，事件循环从宏任务队列中取出该回调，放入调用栈执行**
+  - **当同步代码执行完时，事件循环从宏任务队列中取出该回调，放入调用栈执行**
 - 1000ms是最小延迟，实际执行时间可能因调用栈阻塞（长同步任务）而延迟
 
 - 回调函数不直接出现在当前调用栈中，而是由事件循环在未来的某个事件循环中调度，回调的实际执行时间受主线程繁忙程度影响。通过这种机制，js实现了非阻塞的异步行为
@@ -1525,13 +1634,13 @@ Promise.resolve().then(() => console.log('promise'))
 
 #### nodejs
 
-- 一次事件循环分为多个阶段，每个阶段处理特定类型的宏任务
-- 每个阶段执行时，会处理当前阶段队列中的所有可执行任务（不一定是1个）
 - 每进入一个新阶段前，会清空微任务队列
 
 
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902111024662.png" alt="image-20250902111024662" style="zoom:50%;" />
+
+
 
 
 

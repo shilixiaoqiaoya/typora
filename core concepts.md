@@ -2927,3 +2927,80 @@ fs.readFile("./demo.txt", (err, data) => {
 
 
 
+# 加密crypto
+
+Cipher 密码
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250908182540865.png" alt="image-20250908182540865" style="zoom:40%;" />
+
+
+
+### 对称加密
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250908181747799.png" alt="image-20250908181747799" style="zoom:50%;" />
+
+
+
+#### 一次一密（One-Time Pad）
+
+- 密钥真随机
+- 密钥与明文等长
+- 密钥绝对一次一用（
+
+```js
+const crypto = require('crypto')
+const fs = require('fs')
+const key = crypto.randomBytes(100)  // 100 bytes of random data 
+// 加密
+function encrypt(plaintext) {
+  const ciphertext = Buffer.alloc(plaintext.length)
+  for(let i=0; i<plaintext.length; i++) {
+    ciphertext[i] = plaintext[i] ^ key[i]
+    key[i] = 0
+	}
+  return ciphertext  
+}
+
+// 解密 
+function decrypt(ciphertext) {
+  const plaintext = Buffer.alloc(ciphertext.length)
+  for(let i=0; i<ciphertext.length; i++) {
+    plaintext[i] = ciphertext[i] ^ key[i]
+    key[i] = 0
+	}
+  return plaintext.toString('utf-8')
+}
+
+// 如果A ⊕ B = C, 那么C ⊕ B = A, 并且C ⊕ A = B
+```
+
+
+
+
+
+#### AES
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250909110320846.png" alt="image-20250909110320846" style="zoom:33%;" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
