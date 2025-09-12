@@ -75,9 +75,7 @@ ipc通信
 
 
 
-ipcMain module
-
-- 处理由渲染进程发来的消息
+ipcMain Module
 
 ```js
 // 监听渲染进程发送的消息
@@ -91,31 +89,6 @@ ipcMain.once(channel, listener)
 // 移除特定监听器
 ipcMain.removeListener()
 ```
-
-
-
-```js
-// fire-and-forget communication
-ipcMain.on('save-file', (event, data) => {
-  console.log('save file with data', data)
-})
-
-ipcRenderer.send('save-file', fileData)
-```
-
-
-
-```js
-// 请求-响应模式通信
-ipcMain.handle('get-app-version', async () => {
-  return app.getVersion()
-})
-
-const version = await ipcRenderer.invoke('get-app-version')
-console.log(version)
-```
-
-
 
 
 
@@ -133,4 +106,60 @@ ipcRenderer.removeListener()
 ```
 
 
+
+通信
+
+- fire-and-forget communication
+
+```js
+ipcMain.on('save-file', (event, data) => {
+  console.log('save file with data', data)
+})
+
+// 不阻塞渲染进程
+ipcRenderer.send('save-file', fileData)
+
+____________________________
+
+// 【不推荐】
+ipcMain.on('save-file', (event, data) => {
+  console.log('save file with data', data)
+  event.returnValue = 'hello'  // 已弃用
+})
+
+// 会阻塞渲染进程，直至主线程返回响应
+const res = ipcRenderer.sendSync('save-file', fileData)
+console.log(res)
+```
+
+
+
+- 请求-响应模式通信
+
+  - Invoke-handle
+
+  ```js
+  ipcMain.handle('get-app-version', (event, data) => {
+    return app.getVersion()
+  })
+  
+  const version = await ipcRenderer.invoke('get-app-version')
+  console.log(version)
+  ```
+
+  - event.reply()、event.sender.send()
+
+  ```js
+  ipcMain.on('get-status', (event) => {
+    // 两种给渲染进程发消息的方式
+    event.reply('status-response', 'data from main')
+    event.sender.send('status-response', 'data from main')
+  })
+  
+  ipcRenderer.on('status-response', (event, status) => {
+    console.log('renderer received', status)
+  })
+  ```
+
+  
 
