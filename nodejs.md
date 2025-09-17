@@ -1010,6 +1010,41 @@ if(app.get('env') === 'production') {
 
 
 
+3、cross-env
+
+- **一个跨平台的npm包，用于设置环境变量，旨在解决在不同操作系统上设置环境变量语法不一致的问题**
+
+```js
+// windows
+{
+  "scripts": {
+    "build": 'set NODE_ENV=production && webpack'
+  }
+}
+
+// macos
+{
+  "scripts": {
+    "build": 'NODE_ENV=production webpack'
+  }
+}
+
+// 使用cross-env
+{
+  "scripts": {
+    "build": 'cross-env NODE_ENV=production webpack'
+  }
+}
+```
+
+
+
+
+
+
+
+
+
 
 
 ####  `./`和`__dirname`
