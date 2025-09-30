@@ -3944,6 +3944,27 @@ performance API自定义指标 mark measure
 
 
 
+# 图片类型
+
+jpg/jpeg
+
+- 有损压缩，压缩的越厉害，图片质量损失越多（会出现模糊和色块）
+
+png
+
+- 无损压缩
+
+svg
+
+- **矢量图形，不是由像素点组成的，而是由xml代码描述的点、线构成的**
+- 这意味着它可以被无限放大而永远不会出现失真
+- 它用代码定义，可以通过css来改变颜色、大小，通过js来实现交互和动画
+- 简单图形，文件体积通常很小
+
+![image-20250930094726910](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250930094726910.png)
+
+
+
 
 
 
