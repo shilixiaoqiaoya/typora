@@ -1,3 +1,11 @@
+# 十六进制应用
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20251016145726772.png" alt="image-20251016145726772" style="zoom:40%;" />
+
+
+
+
+
 #  字符集
 
 ### unicode
@@ -6,10 +14,12 @@
 - 字符集大小，目前10万加
 - 覆盖范围：包含世界上所有语言的字符、表情符号等
 - 编码方式
-  - **utf-8：完全兼容ascii，1-4字节表示一个字符**
+  - **utf-8：使用1-4字节表示一个字符，完全兼容ascii（1字节）**
   - Utf-16：2/4 字节表示一个字符
   - Utf-32:  4 字节表示一个字符
 - eg： s 对应数字115(十进制)
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20251016170252774.png" alt="image-20251016170252774" style="zoom:33%;" />
 
 
 
@@ -19,18 +29,39 @@
 
 - 字符集大小，共128个字符
 - 覆盖范围：**（英语）**主要包含英文字母、数字、标点符号等
+- **是unicode字符集的子集**
 - **每个字符占据1字节（8位**
 - eg： s 对应数字115
 
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20251016161311863.png" alt="image-20251016161311863" style="zoom:43%;" />
+
+
+
+### 字符编/解码
+
+- 编码：将文本、图片、视频转为计算机可以处理的形式：二进制
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20251016162038630.png" alt="image-20251016162038630" style="zoom:30%;" />
+
+- 解码：将二进制转为文本、图片、视频
+  - 图像解码器：正确显示图片，会识别某位置像素应显示的颜色
+  - pdf解码器
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20251016162104726.png" alt="image-20251016162104726" style="zoom:33%;" />
+
+
+
+ 
 
 
 
 
-# buffer缓冲区 
+
+# Buffer缓冲区 
 
 ### 基本概念
 
-- **一块内存空间，用于按字节存放二进制数据**
+- **一块内存空间，用于按字节存放二进制数据。默认用0填满这块内存空间**
 - 垃圾回收：在不用时会释放所占用内存
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250728104644463.png" alt="image-20250728104644463" style="zoom:50%;" />
@@ -1753,6 +1784,8 @@ rm 删除文件
 cat 终端显示文件内容
 
 nano 打开文件（一个终端文本编辑器）
+
+which  用于查找某个命令或可执行文件的完整路径
 
 
 

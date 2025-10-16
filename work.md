@@ -3920,6 +3920,8 @@ performance API自定义指标 mark measure
 
 # 视频转码
 
+
+
 - 把视频从一种格式转换成另一种格式，类似把中文书翻译成英文书，内容不变但是形式变了
 - **视频转码 = 格式转换 + 压缩瘦身，目的是让视频在不同设备、网速下流畅播放**
 - 为什么需要转码
@@ -3942,6 +3944,12 @@ performance API自定义指标 mark measure
 
 
 
+流媒体传输过程
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250930164443815.png" alt="image-20250930164443815" style="zoom:33%;" />
+
+
+
 
 
 # 图片类型
@@ -3959,9 +3967,9 @@ svg
 - **矢量图形，不是由像素点组成的，而是由xml代码描述的点、线构成的**
 - 这意味着它可以被无限放大而永远不会出现失真
 - 它用代码定义，可以通过css来改变颜色、大小，通过js来实现交互和动画
-- 简单图形，文件体积通常很小
+- 简单图形，文件体积通常很小  
 
-![image-20250930094726910](https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250930094726910.png)
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250930094726910.png" alt="image-20250930094726910" style="zoom:40%;" />
 
 
 
