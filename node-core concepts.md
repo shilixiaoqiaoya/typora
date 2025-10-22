@@ -122,11 +122,15 @@ if(imageBuffer[0] === 0xff && imageBuffer[1] === 0xd8 && imageBuffer[2] === 0xff
 
 ### 基本概念
 
-- 电脑上所有东西都是文件
+- 电脑上所有东西都是文件，本质是一串二进制数据
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250728152206100.png" alt="image-20250728152206100" style="zoom:40%;" />
 
 
+
+- 不同的文件需要使用不同的解码器打开
+  - 文本文件：字符解码，node内置文本解码器
+  - 图片文件：图像解码
 
 - 比如一个应用程序，双击**「Unix可执行文件」**即可运行，**可执行文件是特定于操作系统和cpu类型的**
 
@@ -134,7 +138,9 @@ if(imageBuffer[0] === 0xff && imageBuffer[1] === 0xd8 && imageBuffer[2] === 0xff
 
 
 
-- 当nodejs打开一个文件时，是libuv调用操作系统提供的系统调用函数open()，操作系统控制硬件
+- node打开一个文件时，是通过**系统调用机制**实现的，node通过系统调用与操作系统交互，操作系统访问硬件并执行具体操作
+  - 是libuv调用操作系统提供的系统调用函数open()，操作系统控制硬件
+
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250728154700004.png" alt="image-20250728154700004" style="zoom:40%;" />
 
@@ -152,12 +158,15 @@ console.log('文件描述符', fd)
 ```
 
 - 打开一个文件时，发生了什么？
-  - 执行系统调用open()时，会给文件分配一个数字，也就是文件描述符
+  - 执行系统调用open()时，在内存中会给文件分配一个数字，也就是文件描述符
+    - 在执行完后，**需要执行关闭操作**，避免内存泄漏
   - 执行系统调用read()时，会从磁盘读取数据进入内存
 
 
 
 - 三种代码编写方式：**promises API**、callback API、synchronous API
+  - 回调方式比promise方式代码运行速度要快
+
 
 ```js
 const fs = require('fs/promises')
@@ -197,9 +206,10 @@ const fs = require('fs/promises')
   async function createFile(path) {
     let fileHandle
     try {
-      fileHandle = await fs.open(path, 'r')
+      fileHandle = await fs.open(path, 'r')  // 未报错说明文件已存在
+      return console.log('the file already exists')
     } catch(err) {
-      fileHandle = await fs.open(path, 'w')
+      fileHandle = await fs.open(path, 'w')  // 报错则创建文件
     }
     fileHandle.close()
   }
@@ -280,8 +290,9 @@ const fs = require('fs/promises')
     
   })
   
-  // 监听文件
+  // fs.watch监听文件(文件内容变更change、文件名修改rename)
   const watcher = fs.watch('./command.txt')
+  	// watcher 是一个async iterator ？？？
   for await (const event of watcher) {
     if(event.eventType === 'change') {
       fd.emit('change')
@@ -296,15 +307,22 @@ const fs = require('fs/promises')
 
 
 
+
+
+
+
+
+
 # Stream
 
 ### 示例
 
-- 向一个`.txt`文件写入字符十万次，使用`fs.open()`的promise和回调两种方式
-  - 实测发现：回调执行时间要比promise执行时间短
+- 向一个`.txt`文件写入字符十万次，
+  - 打开文件利用`fs.open()`的promise和回调两种方式，实测发现：回调api执行要比promise api执行快
 
 ```js
-// 执行时长8s; cpu: 100%(one core); memory: 50mb
+// 均使用promise api
+	// 执行时长8s; cpu: 100%(one core); memory: 50mb
 (async () => {
   console.time('writeMany')
   const fileHandle = await fs.open('test.txt', 'w')
@@ -314,7 +332,9 @@ const fs = require('fs/promises')
   console.timeEnd('writeMany')
 })()
 
-// 执行时长1.2s; cpu: 100%(one core); memory: 50mb
+
+// open回调api + writeSync
+	// 执行时长1.2s; cpu: 100%(one core); memory: 50mb
 console.time('writeMany')
 fs.open('test.txt', 'w', (err, fd) => {
   for(let i=0; i<1000000; i++) {
@@ -324,23 +344,31 @@ fs.open('test.txt', 'w', (err, fd) => {
 })
 
 
-// 执行时长750ms; 非常非常占用cpu和memory(write操作向事件循环推入大量的回调，内存会爆满）
+// open和write都使用回调api
+	// 执行时长750ms; 非常占用cpu和memory
 console.time('writeMany')
 fs.open('test.txt', 'w', (err, fd) => {
   for(let i=0; i<1000000; i++) {
-    fs.write(fd, ` ${i} `, () => {})
-    console.timeEnd('writeMany')
+    fs.write(fd, ` ${i} `, () => {})   // write操作向事件循环推入大量的回调，内存会爆满
   }
+  console.timeEnd('writeMany')
 })
+	// 本质上，node会为每项创建缓冲区
+  for(let i=0; i<1000000; i++) {
+    const buff = Buffer.from( ` ${i} `, 'utf-8')
+    fs.write(fd, buff, () => {})
+  }
 ```
 
 
 
-- promise结合stream
-  - 执行速度很快，但是内存占用高
+- 借助流stream
+  - 执行速度更快
+  - 内存占用高，所以不推荐这种流的处理方式
+  - TODO: 如何既执行速度快又内存高效呢？
 
 ```js
-// 执行时长150ms，memory: 150mb
+// 执行时长150ms，占用内存: 150mb
 (async () => {
   console.time('writeMany')
   const fileHandle = await fs.open('test.txt', 'w')
@@ -375,7 +403,16 @@ fs.open('test.txt', 'w', (err, fd) => {
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250729180708551.png" alt="image-20250729180708551" style="zoom:40%;" />
 
-- 普通文件流，内部缓冲区默认大小：64KB 
+- 内部有buffer缓冲区，默认大小：64KB 
+- write()方法
+  - 将数据持续推入到内部缓冲区，直达缓冲区全部填满，会将这些数据一次性取出并处理
+  - 上图：向流中写入8次数据，向底层资源只写入1次
+  - 示例中不借助流，需要向底层资源写入一百万次，使用流将显著减少向底层资源写入的次数
+  - 假设最后一个数据块是3000字节，2177字节会被推入缓冲区，剩下字节会在内存中，当缓冲区清空时，剩下字节会被推入缓冲区
+  - 示例中为什么会出现内存暴涨的情况呢？
+    - 持续向内部缓冲区写入，而不让它清空，所有数据都会被堆在内存中
+    - 解决：等待内部缓冲区清空，再继续安全地向内部缓冲区推送数据
+
 
 ```js
 const writableStream = fs.createWriteStream('test.txt')
@@ -440,6 +477,11 @@ fs.createWriteStream('./test.txt')
 - 可读流会维护一个缓冲区，用于临时存储从底层资源（如文件、网络）读取的数据
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250729181100564.png" alt="image-20250729181100564" style="zoom:40%;" />
+
+- push()方法
+  - 将数据推入流的内部缓冲区
+- data事件
+  - 当内部缓冲区被填满会触发，此时内部缓冲区所有数据以chunk的形式在回调中
 
 - 实现文件复制
 
@@ -565,6 +607,10 @@ pipeline(
 
 
 
+
+双工流、转换流
+
+- 有两个内部缓冲区？
 
 
 
