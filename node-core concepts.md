@@ -416,8 +416,10 @@ fs.open('test.txt', 'w', (err, fd) => {
 
 ```js
 const writableStream = fs.createWriteStream('test.txt')
+
 // 获取流的缓冲区大小
 console.log(writableStream.writableHighWaterMark)   // 64KB
+
 // 获取流的缓冲区已使用大小
 console.log(writableStream.writableLength)  // 0
 
@@ -429,7 +431,7 @@ console.log(writableStream.writableLength)  // 6
 
 
 
-- promise结合stream, 监听streamWrite的drain事件
+- 解决示例中的内存暴涨问题：promise结合stream,  监听streamWrite的drain事件
   - streamWrite.on('drain', () => {})
     - 可写流的缓冲区被清空时触发
     - 用于背压(backpressure)控制，防止内存溢出
@@ -444,6 +446,9 @@ console.log(writableStream.writableLength)  // 6
   const writeMany = () => {
     while(i < 1000000) {
       const buff = Buffer.from(` ${i} `, 'utf-8')
+      if(i === 999999) {
+        return stream.end(buff)
+      }
       i++
       if(!stream.write(buff)) break
     }
@@ -452,10 +457,16 @@ console.log(writableStream.writableLength)  // 6
   stream.on('drain', () => {
     writeMany()
   })
+  stream.on('finish', () => {
+    fileHandle.close()
+  })
 })()
 ```
 
+
+
 - StreamWrite.end('最后的数据')：会触发finish事件
+  - 在end()后执行write()会报错
 - streamWrite.on('finish', () => {}) ：所有数据都已写入到底层目标，可写流不再接收新数据，缓冲区已清空
 
 
@@ -475,6 +486,8 @@ fs.createWriteStream('./test.txt')
 ### 可读流
 
 - 可读流会维护一个缓冲区，用于临时存储从底层资源（如文件、网络）读取的数据
+- 内部缓冲区大小待确定，查官方文档
+- cat命令是通过可读流的方式打开文件的，所以打开大文件不会导致崩溃
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250729181100564.png" alt="image-20250729181100564" style="zoom:40%;" />
 
@@ -484,6 +497,8 @@ fs.createWriteStream('./test.txt')
   - 当内部缓冲区被填满会触发，此时内部缓冲区所有数据以chunk的形式在回调中
 
 - 实现文件复制
+  - 磁盘读取速度远大于写入速度，需要避免背压
+
 
 ```js
 (async () => {
@@ -550,7 +565,58 @@ fs.createReadStream('./test.txt')
 
 
 
-#### pipe()
+
+
+### 两种方式实现文件复制
+
+- 假设text.txt文件是1GB，要实现文件的复制
+
+  - 使用`fs.readFile()`
+
+  ```js
+  // 使用readFile()时，会将整个文件加载进内存
+  // memeory usage: 1GB
+  // exec time: 1s
+  (async () => {
+    const destFile = await fs.open('text-copy.txt', 'w')
+    const res = await fs.readFile('text.txt')
+    await destFile.write(res)
+  })()
+  ```
+
+  - 使用`filehandle.read()`,  每次读的数据大小是16KB
+
+  ```js
+  // memeory usage: 20mb
+  // exec time: 1s
+  (async () => {
+    const destFile = await fs.open('text-copy.txt', 'w')
+    const srcFile = await fs.open('text.txt', 'r')
+    let bytesRead = -1
+    while(bytesRead !== 0) {
+      const res = await srcFile.read()
+     	bytesRead	= res.bytesRead
+      if(bytesRead !== 16384) {
+        const indexOfNotFilled = res.buffer.indexOf(0)
+        const newBuffer = Buffer.alloc(indexOfNotFilled)
+        res.buffer.copy(newBuffer, 0, 0, indexOfNotFilled)
+        destFile.write(newBuffer)
+      } else {
+        destFile.write(res.buffer)
+      }
+    }
+  })()
+  ```
+  
+- ### fs.readFile()和fs.writeFile()
+
+  - 基于系统调用，一次性操作，不是基于流的方式
+
+  
+
+
+
+### pipe()
 
 - `readable.pipe(destination)`
 - **自动背压控制**
@@ -582,7 +648,7 @@ fs.createReadStream('./test.txt')
 
 
 
-#### pipeline()
+### pipeline()
 
 - **可以自动处理错误，会捕获所有流的错误【错误处理】**
 - **在出错或数据传输完成时自动销毁( destroy )所有流【资源释放】**
@@ -608,55 +674,15 @@ pipeline(
 
 
 
-双工流、转换流
+双工流
 
-- 有两个内部缓冲区？
+- 有两个内部缓冲区，一个读缓冲区，一个写缓冲区，这两个缓冲区互不干扰
 
+转换流
 
-
-### 模拟实现可读可写流
-
-- 假设text.txt文件是1GB，要实现文件的复制
-
-  - 使用`fs.readFile()`
-
-  ```js
-  // 使用readFile()时，会将整个文件加载进内存
-  // memeory usage: 1GB
-  // exec time: 1s
-  (async () => {
-    const destFile = await fs.open('text-copy.txt', 'w')
-    const res = await fs.readFile('text.txt')
-    await destFile.write(res)
-  })()
-  ```
-
-  - 使用`filehandle.read()`, 缓冲区大小是16KB
-
-  ```js
-  // memeory usage: 20mb
-  // exec time: 1s
-  (async () => {
-    const destFile = await fs.open('text-copy.txt', 'w')
-    const srcFile = await fs.open('text.txt', 'r')
-    let bytesRead = -1
-    while(bytesRead !== 0) {
-      const res = await srcFile.read()
-      bytesRead = res.bytesRead
-      destFile.write(res.buffer)
-    }
-  })()
-  ```
-
-  
+- 特殊的双工流，只有一个中间缓冲区（具备读写功能），核心是对输入的数据进行转换后再输出
 
 
-
-
-
-### fs.readFile()和fs.writeFile()
-
-- 基于系统调用，一次性操作，不是基于流的方式
 
 
 
