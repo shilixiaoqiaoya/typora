@@ -711,7 +711,11 @@ pipeline(
 
 
 
-## 实现chatApp
+
+
+## TCP
+
+### 实现chatApp
 
 - **`net.createServer()`: 创建tcp服务端或ipc服务端**
   - 两台不同电脑上的两个进程通信，通过tcp
@@ -887,7 +891,7 @@ server.on('connection', socket => {
 
 
 
-## dns
+### DNS
 
 ```js
 const dns = require('dns/promises')
@@ -901,17 +905,27 @@ const dns = require('dns/promises')
 
 - cat /etc/hosts
 
-  - 查看本地域名与ip的静态映射，优先级高于dns查询
+  - 本地dns记录表。查看本地的域名与ip的映射
   - 使用场景
     - 本地开发测试，将域名临时指向本地IP，绕过DNS解析
-
-  - 安全性：恶意程序可能篡改此文件以劫持域名【dns劫持】
+- 安全性：恶意程序可能篡改此文件以劫持域名【dns劫持】，将域名指向错误的恶意ip
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250804143347134.png" alt="image-20250804143347134" style="zoom:40%;" />
 
 
 
-## 实现uploader
+ipv6
+
+- 128bit
+- 连续的0可以使用`::`代替
+- 本地回环地址`0000.0000.0000.0000.0000.0000.0000.0001`
+  - `::1`
+
+
+
+
+
+### 实现uploader
 
 #### 基本实现
 
@@ -957,12 +971,18 @@ server.on('connection', (socket) => {
   // socket为可读流，接收客户端数据
   socket.on('data', async (chunk) => {
     if(!fileHandle) {
+      // fs.open需要一定时间，可能导致fs.open执行多次，所以在首次data事件后，停止读取数据，fs.open执行完再恢复
       socket.pause()
+      
       const filePath = path.resolve(__dirname, 'storage', 'text.txt')
       fileHandle = await fs.open(filePath, 'w')
       fileStream = fileHandle.createWriteStream()
-      fileStream.write(chunk)
+      fileStream.write(chunk) 
+      
+      // 恢复
       socket.resume()
+      
+      // 监听drain事件
       fileStream.on('drain', () => {
         socket.resume()
       })
@@ -976,7 +996,7 @@ server.on('connection', (socket) => {
   // 连接结束
   socket.on('end', () => {
     fileHandle.close()
-    // 下面两行代码非常重要，若没有，第二次连接时会尝试写入已关闭的fd，导致错误
+    // 下面两行代码非常重要，若没有，同一客户端第二次上传时会有bug
     fileHandle = null;
     fileStream = null;
   })
@@ -1046,7 +1066,7 @@ fileStream.on('data', async (chunk) => {
   }
   uploadedBytes += chunk.length
   const newUploadedPercent = (uploadedBytes / fileSize).toFixed(2) * 100;
-  if (newUploadedPercent !== uploadedPercent) {
+  if (newUploadedPercent % 5 ===0 && newUploadedPercent !== uploadedPercent) {
     console.log(`${newUploadedPercent}%`);
     uploadedPercent = newUploadedPercent;
   }
