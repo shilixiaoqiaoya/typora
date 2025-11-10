@@ -1118,9 +1118,12 @@ receiver.on('listening', () => {
 
 
 
+- 先建立tcp连接，三次握手
 - tcp连接本质上是用户主机上的应用程序（客户端）与服务器上的服务应用程序（服务端）之间建立的端到端通信链路
   - 客户端：用户设备上的应用程序（浏览器、app、curl）
   - 服务端：服务器上运行的特定服务（如nginx、api服务）
+- http1.0和2.0基于tcp；http3.0基于udp
+- 请求体和响应体，有结束标识
 
 
 
@@ -1131,11 +1134,13 @@ receiver.on('listening', () => {
 - server  
 
 ```js
-const http = require('http')
+const http = require('node:http') // `node:`表示node原生模块，无需安装直接使用
 const server = http.createServer()
 server.on('request', (request, response) => {
   // 打印请求方法、url、请求头
   console.log(request.method, request.url, request.headers)
+  
+  // 以流的方式获取请求体，内存友好
   request.on("data", (chunk) => {
     console.log(chunk.toString("utf-8"));
   });
@@ -1152,12 +1157,31 @@ server.listen(8000, () => {
 
 
 
+- **Connection: keep-alive** 
+
+  - 两个端之间的数据传输（多个请求-响应），复用一个tcp连接，复用socket对象
+    - 两个端指的是：<客户端IP, 客户端端口, 服务器IP, 服务器端口>
+
+  ```js
+  server.on('connection', socket => {
+  })
+  ```
+
+  - 有超时设置
+    - 设置请求头：`Keep-Alive: timeout=8,max=800`
+    - 8秒内tcp连接无数据段交换，断开连接
+      - 节省服务器资源，服务器需要同时服务成千上万用户，空闲连接不关闭，会很快耗尽服务器的可用临时端口和内存
+    - tcp连接最多可以被用来发送800个请求
+      - 限制最大请求数可以强制重新建立连接，确保连接的健康度
+
+
+
 - client
 
 ```js
 // agent对应于特定的一个tcp连接
-const agent = new http.Agent({ keepAlive: true })
-// request是双工流
+const agent = new http.Agent ({ keepAlive: true })
+// request是双工流，可读可写
 const requst = http.request({
   agent: agent,
   hostname: 'localhost',
@@ -1224,8 +1248,6 @@ server.listen(8000, '127.0.0.1'. () => {
 
 - **Content-length**: 所要发送数据的大小
 - **Transfer-encoding: 'chunked'**：未标明数据大小的默认头【和Content-length不同时使用 】
-
-- **Connection: keep-alive** 多个请求复用一个tcp连接
 
 - 媒体类型**content-type**
 
