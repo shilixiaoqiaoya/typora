@@ -1251,17 +1251,28 @@ server.listen(8000, '127.0.0.1'. () => {
 
 - 媒体类型**content-type**
 
-  - 是必需的，决定了浏览器以何种方式处理文件，比如css文件会渲染到页面，js文件会被执行
-  - 值是 `type/subtype`
-  - 以.png为例，对应二进制数据中，开头一连串**magic number**`89 50 4e 47 0d 0a 1a 0a`表明它是.png文件类型
+  - 是必需的，决定了浏览器以何种方式处理文件，比如html文件会渲染，css文件会美化页面，js文件会被执行
+  - 形式为`type/subtype;key=value`，比如 `text/html;charset=utf-8`
+  - 根据正文结构分两种大类，单一类型、复合类型
+    - 单一：`Content-Type: text/html; charset=utf-8`
+    - 复合：`Content-Type: multipart/form-data; boundary=ExampleBoundaryString`
+    - <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20251112100040969.png" alt="image-20251112100040969" style="zoom:80%;" />
+
+- **魔法数字**
+
+  - 文件对应二进制数据的开头几个字节，像是文件的身份证，用于唯一标识该文件的真实格式
+  - 不要相信文件的扩展名，扩展名可以轻易被修改，要相信魔法数字，比如 `89 50 4e 47`表明它是.png文件类型
 
 - 请求方法head
 
   - 快速获取资源的元信息，**只返回响应头**，比如看资源的类型（content-type）、大小（content-length）
   - 可以节省带宽，尤其对大文件（如视频）的元数据查询非常有效
 
+- Option方法：查询服务器支持的请求方法和请求头
+
 - 301 重定向状态码
 
+  - 举例: 输入`apple.com`，会重定向到`www.apple.com`
   - **常用于 Nginx 等web服务来实现永久重定向**
 
   ```nginx
@@ -1279,14 +1290,18 @@ server.listen(8000, '127.0.0.1'. () => {
   - 告知浏览器，目标资源已永久迁移到新url，浏览器会自动重新访问新地址
   - seo友好：搜索引擎会将旧url的权重重新转移到新url
 
-  
 
 
 
-### web server
 
-- 返回html、css、js文件【文件路由】
-- 除了文件路由，还有一种json路由
+
+### web server网页服务器
+
+- 网页服务器主要功能是，将html、css、js文件返回到客户端，客户端进行页面渲染
+- 文件路由：返回html、css、js文件『静态资源服务』
+- 除了文件路由，还有一种json路由「接口服务」
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/fetching-a-page.svg" alt="A single Web document composed from multiple resources from different servers." style="zoom:67%;" />
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250811103745814.png" alt="image-20250811103745814" style="zoom:80%;" />
 
@@ -1316,6 +1331,14 @@ server.on('request', async (request, response) => {
     const fileStream = fileHandle.createReadStream()
     fileStream.pipe(response)
   }
+  
+  // json路由
+  if(request.url === '/login' && request.method === 'POST') {
+    response.setHeader('Content-Type', 'application/json')
+    response.statusCode = 200
+    const body = { msg: 'logging...' }
+    response.end(JSON.stringify(body))
+  }
 })
 server.listen(9000, () => {
 	console.log('server listening on http://localhost:9000')
@@ -1325,29 +1348,29 @@ server.listen(9000, () => {
 ```html
 <html>
   <head>
-  	<link href='styles.css'/>  // 浏览器会发送请求 'http://localhost:9000/styles.css'
+  	<link href='style.css'/>  // 浏览器会自动发送请求 'http://localhost:9000/style.css' 
   </head>
   <body>
     <h1>hello world</h1>
-		<script src='scripts.js'></script>  // 浏览器会发送请求 'http://localhost:9000/scripts.js'
+		<script src='script.js'></script>  // 浏览器会自动发送请求 'http://localhost:9000/script.js'
   </body>
 </html>
 ```
 
-- 代码有问题，需检查 ！！！
+- 上传功能
 
 ```js
-  // json路由，上传功能
-  if(request.url === '/upload' && request.method === 'POST') {
-    response.setHeader('Content-Type', 'application/json')
-   	const fileHandle = await fs.open('./storage/image.jpg', 'w')
-  	const fileStream = fileHandle.createWriteStream()
-   	request.pipe(fileStream)
-   	fileStream.on('finish', async () => {
-      await fileHandle.close()
-     	response.end(JSON.stringify({msg: 'file was uploaded'}))
-   	})
-  }
+if(request.url === '/upload' && request.method === 'POST') {
+  response.setHeader('Content-Type', 'application/json')
+  const fileHandle = await fs.open('./storage/image.jpg', 'w')
+  const fileStream = fileHandle.createWriteStream()
+  request.pipe(fileStream)
+  
+  request.on('end', async () => {
+    await fileHandle.close()
+    response.end(JSON.stringify({msg: 'file was uploaded'}))
+  })
+}
 ```
 
 
