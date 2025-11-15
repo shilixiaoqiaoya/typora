@@ -1547,9 +1547,26 @@ proxy.listen(PORT, () => {
 
 ### cookie
 
+- http是无状态的
+- 假设一个用户通过负载均衡服务，先向服务器A发送登录的请求，再向服务器B发送获取个人资料的请求，B需要知道用户已经登录过了
+- 这个标识用户登录态的就是token，B查数据库发现token确实属于该用户，就可以把对应数据安全地返回客户端【身份验证】
+  - 每个用户和服务端建立起一个会话，而token是会话（Session）的凭证
+  - 在浏览器中如何保存token？
+    - Cookie
+      - 处理用户登录的服务器通过`Set-Cookie`将cookie返回给客户端
+      - 浏览器会自动将cookie保存至磁盘，并且之后每次请求会携带cookie的请求头
+    - localstorage
+      - 可以自定义请求头
+
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250812102633550.png" alt="image-20250812102633550" style="zoom:40%;" />
 
-- 属性：Expires、HttpOnly、Secure
+- 响应头`Set-Cookie`可以加一些属性：
+  - Expires（过期时间）
+  - HttpOnly（js不可修改）
+  - Secure
+  - Path：请求url的path包含该字符串，请求才会携带cookie
+  - domain
+
 - 指明 expires和max-age属性，将会在磁盘上保存
 
 ``` js
@@ -1574,7 +1591,7 @@ if(session) {
 
 - 退出登录
   - 数据库删除该token
-  - **浏览器删除该token，利用Set-Cookie，将Expires或Max-Age设置为过去的时间点**
+  - **服务端通过Set-Cookie，将Expires或Max-Age设置为过去的时间点，浏览器会删除该cookie(token)：**
 
 ```js
 server.route('delete', '/api/logout', (req, res) => {
@@ -1593,8 +1610,10 @@ server.route('delete', '/api/logout', (req, res) => {
 
 ### 中间件
 
+- 在真正处理请求前`this.routes[req.method.toLowerCase() + req.url](req, res)`，对req和res做修改
+- butter.js
+
 ```js
-// butter.js
 class Butter {
   constructor() {
     this.server = http.createServer()
@@ -1613,18 +1632,20 @@ class Butter {
             }
             // 真正处理请求
             this.routes[req.method.toLowerCase() + req.url](req, res)
+            
           })
         })
       })
     })
   }
+  
   beforeEach(cb) {
     this.middlewares.push(cb)
   }
 }
 ```
 
-- **对中间件调用逻辑进行优化**
+- 对中间件调用逻辑进行优化：**使用递归来自动化执行**
 
 ```js
 this.server.on('request', (req, res) => {
@@ -1649,7 +1670,6 @@ this.server.on('request', (req, res) => {
 // server.js
 const Butter = require('./butter.js')
 const PORT = 9000
-
 const server = new Butter()
 
 // 【中间件】
@@ -1658,17 +1678,18 @@ server.beforeEach((req, res, next) => {
   next()
 })
 server.beforeEach((req, res, next) => {
-  console.log('second middleware')
-  next()
+  setTimeout(() => {
+    console.log('second middleware')
+  	next()
+  }, 2000)
 })
 server.beforeEach((req, res, next) => {
   console.log('third middleware')
   next()
 })
-
-//【文件路由】
+//【各种路由】
 server.route('get', '/', (req, res) => {
-  res.status(200).sendFile('./public/index.html', 'text/html')
+  ...
 })
 
 server.listen(PORT, () => {
@@ -1678,9 +1699,7 @@ server.listen(PORT, () => {
 
 
 
-
-
-#### 身份验证
+1、身份验证
 
 ```js
 server.beforeEach((req, res, next) => {
@@ -1690,7 +1709,7 @@ server.beforeEach((req, res, next) => {
       const token = req.headers.cookie.split('=')[1]
 			const session = SESSIONS.find(s => s.token === token)
       if(session) {
-        req.userId = session.userId
+        req.userId = session.userId  // 在req添加userId属性
         return next()
       }
     } 
@@ -1703,7 +1722,7 @@ server.beforeEach((req, res, next) => {
 
 
 
-#### 解析json请求体
+2、解析json格式的请求体
 
 ```js
 server.beforeEach((req, res, next) => {
@@ -1713,7 +1732,7 @@ server.beforeEach((req, res, next) => {
       body += chunk.toString('utf-8')
     })
     req.on('end', () => {
-      req.body = JSON.parse(body)
+      req.body = JSON.parse(body) // 在req添加body属性,可以通过req.body.xxx获取请求体具体字段值
       next()
     })
   } else {
@@ -1724,7 +1743,7 @@ server.beforeEach((req, res, next) => {
 
 
 
-#### 返回index.html
+3、返回index.html，交由前端路由处理应该展示哪个页面
 
 ```js
 server.beforeEach((req, res, next) => {
@@ -1739,9 +1758,7 @@ server.beforeEach((req, res, next) => {
 
 
 
-
-
-### ？静态资源
+？静态资源
 
 ### ？疑问
 
