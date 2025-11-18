@@ -1897,11 +1897,11 @@ Content-Type: text/html
 
 - **unix操作系统，unix由c编写**
 - linux是受unix开发出来的开源操作系统，linus创建的，也发明了git
-- macos
-- Android
-- ios
+- macos、Android、ios也属于linux的分支
 
-*【windows不是unix系统】*
+*【注意：windows不是unix系统】*
+
+- unix哲学：应用程序专注于特定任务，程序之间协同工作来完成目标
 
 
 
@@ -1954,75 +1954,101 @@ which  用于查找某个命令或可执行文件的完整路径
 
 ### unix shells
 
-- shell是一个c应用程序，每开启一个终端，操作系统内核就会开启一个shell程序
-- 
+- 每开启一个终端标签页 Terminal(TTY)，终端会通知操作系统内核，内核会前往存储设备Storage，并生成一个新进程，也就是shell
+
+- shell是一个c语言应用程序，通过系统调用 **`System Calls`**与操作系统内核unix kernel通信【shell是与内核交互的接口】
+
+  【在c文件引入某个系统调用的头文件，就可以获得该系统调用的访问权限】
+
+- 常见的shell有bash、zsh
+
+  - linux默认自带shell是bash
+  - macOS默认自带shell是zsh
+
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813094810187.png" alt="image-20250813094810187" style="zoom:40%;" />
 
 
 
-- 在一个shell程序中，终端可以输入命令，会按下面顺序开始查找，「type 命令」可以得到命令的类型
+- 在一个shell程序中，终端可以输入命令，**会按优先级从高到低开始查找**，「type 命令」可以得到命令的类型
 
-  - 【**Aliases**】：给一个命令添加别名，比如给node起别名为runplay，执行runplay和执行node效果相同
+  - **Aliases**：优先级最高，给一个命令添加别名，比如给node起别名为runplay，执行runplay和执行node效果相同
 
   ```js
   alias runplay='node'   // runplay is an alias for node
   ```
 
-  - **【Functions】**：函数
-  - 【**Built-In Functions】**：内置函数
+  - **Functions**：函数
+  
+  - **Built-In Functions**：内置函数
+    
     - echo   **`echo is a shell builtin`**
-  - 【**Path】：会挨个查找下列目录（全局路径变量），看目录下面是否有输入命令对应的unix可执行文件**
+    
+  - **Path：执行`echo $PATH` ，全局路径变量的值是一系列文件夹，遍历这些文件夹，查看是否可以找到输入命令对应的unix可执行文件**
+  
+    - <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813104746891.png" alt="image-20250813104746891" style="zoom:50%;" />
+      - node  **`node is /Users/tal/.volta/bin/node`**
+      - ls   **`ls is /bin/ls`**
     - *unix可执行文件：二进制内容，已经被编译为机器代码的c程序，可供cpu直接执行*
-    - node  **`node is /Users/tal/.volta/bin/node`**
-    - echo也有可执行文件，但是相对于内置函数echo，可执行文件执行创建一个新进程，占内存，太重了
-
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813104746891.png" alt="image-20250813104746891" style="zoom:50%;" />
-
-```js
-console.log(process.env.PATH)  // 在node中可以通过process.env.PATH访问全局路径变量
-```
-
-
-
-- Path举例：输入ls，会在`/bin`文件夹下找到对应可执行文件并执行【输入`/bin/ls`也是相同效果】
-
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813105317767.png" alt="image-20250813105317767" style="zoom:50%;" />
-
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813113659385.png" alt="在磁盘保存的unix可执行文件" style="zoom:67%;" />
-
-- 可执行文件每次执行，对应一个进程
-
-- 在shell对应的配置文件（macos以`./zshrc`为例），配置某个命令的别名，在所有终端都生效
-
-```js
-// 终端输入des希望进入Desktop文件夹
-
-alias des='cd ~/Desktop'
-type des  // des is an alias for cd ~/Desktop
-```
-
-
-
-
+    - 在node中可通过 `process.env.PATH`访问全局路径变量
+  
+    - 举例：输入ls，会在`/bin`文件夹下找到对应可执行文件并执行【输入`/bin/ls`也是相同效果】
+  
+    <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813105317767.png" alt="image-20250813105317767" style="zoom:50%;" />
+  
+    <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250813113659385.png" alt="在磁盘保存的unix可执行文件" style="zoom:60%;" />
+  
+    - 可执行文件每次执行，启动一个新进程
+    - 在shell对应的配置文件（macos以`./zshrc`为例），配置某个命令的别名，在所有终端都生效
+  
+    ```js
+    // 终端输入des希望进入Desktop文件夹
+    alias des='cd ~/Desktop'
+    type des  // des is an alias for cd ~/Desktop
+    ```
+  
+    
+  
+    
 
 
 
 ### child_process
 
 - 用于创建和管理子进程，允许在nodejs中执行系统命令，执行系统命令时会开启一个进程
-- **Spawn：衍生子进程**
+
+```js
+// demo.js
+const { spawn } = require('node:child-process')
+const subprocess = spawn('ls')
+subprocess.stdout.on('data', (data) => 
+  console.log(chunk.toString('utf-8'))                   
+)
+// 在命令行执行node demo.js，和执行ls，输出结果相同
+// 前者进程链：shell->node->ls
+// 后者进程链：shell->ls
+```
+
+
+
+- **spawn()：衍生子进程**
+  - 以流的方式处理数据，内存友好
+  - **无需依赖shell**，直接启动新进程
   - **第一个参数需要是unix可执行文件**
     - 如果是位于全局路径变量下的unix可执行文件，可以直接传命令名
     - 如果不是，需要传unix可执行文件的路径
   - 第二个参数是数组：传给unix可执行文件的参数列表(args)
+
 
 ```js
 const { spawn } = require('child_process')
 
 const subprocess = spawn('ls') 
 const subprocess = spawn('ls', ['-l']) 
+
+// 新开一个zsh进程，执行demo.sh脚本代码
 const subprocess = spawn('zsh', ['./demo.sh']) 
+
 subprocess.stdout.on('data', (chunk) => {
   console.log(chunk.toString('utf-8'))
 })
@@ -2033,7 +2059,10 @@ subprocess.stdout.on('data', (chunk) => {
 
 
 
-- 将命令在shell中执行
+- **exec()**
+  - 内存不友好
+  - **将命令在shell程序中执行**
+
 
 ```js
 const { exec } = require('child_process')
@@ -2045,11 +2074,13 @@ exec('ls -l', (err, stdout, stderr) => {
   console.log(stdout)
   console.log(stderr)
 })
+
+// exec("echo 'something string' | tr ' ' '\n'", ...)
 ```
 
 
 
-- fork()
+- **fork()**
   - 基于spawn，只能衍生node进程
   - cluster.fork()，衍生自身作为子进程
 
