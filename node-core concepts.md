@@ -2081,14 +2081,14 @@ exec('ls -l', (err, stdout, stderr) => {
 
 
 - **fork()**
-  - 基于spawn，只能衍生node进程
+  - 基于spawn()，只能衍生node进程
   - cluster.fork()，衍生自身作为子进程
 
 
 
 
 
-### unix下进程管理
+### 进程管理
 
 - 最顶层进程是kernel_task，其pid为0
 - 其它进程都可以视为kernel_task进程的子进程
@@ -2108,7 +2108,7 @@ exec('ls -l', (err, stdout, stderr) => {
 - 在开启子进程时，可以传递参数
 
   - 比如，在终端输入`node test.js a b c`时，unix可执行文件后面的 `test.js`、`a`、`b`、`c`就是`args`
-  - node进程可以通过`process.argv` 获取到参数数组， process.argv[0]是可执行文件的绝对路径
+  - node进程可以通过`process.argv` 获取到参数数组， process.argv[0]是unix可执行文件的绝对路径
 
   ```js
   [
@@ -2141,21 +2141,29 @@ subprocess.stdout.on('data', (chunk) => {
 
 #### 环境变量
 
-- 每个进程有自己独立的环境变量空间，环境变量由进程创建而生成，随进程终止而销毁（存储在进程的内存空间
+- **每个进程有自己独立的环境变量空间，环境变量由进程创建而生成，随进程终止而销毁（存储在进程的内存空间**
 
-- 在开启子进程时，默认情况下，父进程的所有环境变量都会传递给子进程，子进程可以修改
-
-- bash中定义环境变量： `export FOO='bar'`  foo是一个环境变量，此时开启node子进程
+- **在开启子进程时，父进程的所有环境变量默认都会传递给子进程。父进程可以完全控制传给子进程的环境变量，可以做任意修改**
 
 ```js
-console.log(process.env.FOO) // 'bar'
-process.env.FOO = 'baz'
-console.log(process.env.FOO) // 'baz'
+const subprocess = spawn('unix exec file', [...], {
+  env: process.env
+}) 
 ```
 
-bash中去掉环境变量 `unset FOO`
+- shell环境变量
 
-bash中可以通过命令 `env` 获取当前shell进程的所有环境变量
+  - 定义环境变量： `export FOO='bar'`  FOO是一个环境变量，此时开启node子进程
+
+  ```js
+  console.log(process.env.FOO) // 'bar'
+  process.env.FOO = 'baz'  // 子进程可以修改
+  console.log(process.env.FOO) // 'baz'
+  ```
+
+  - 去掉环境变量 `unset FOO`
+  - shell中可以通过命令 `env` 获取当前shell进程的所有环境变量
+
 
 
 
@@ -2165,28 +2173,38 @@ bash中可以通过命令 `env` 获取当前shell进程的所有环境变量
 
 ### 文件系统
 
-- 根目录` /`
-  - 主目录：每个用户有各自的主目录 `~`，终端输入`cd`可进入当前用户的主目录
-- `.`表示当前目录，`..`表示父目录
+- 根目录：` /`
+- 主目录：每个用户都有自己的主目录 `~`，终端输入 `cd` 可进入当前用户的主目录
+- `.` 表示当前目录，`..` 表示父目录
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815094650726.png" alt="image-20250815094650726" style="zoom:40%;" />
 
-- 在衍生子进程时，除了参数和环境变量，父进程还会将它的当前工作目录传给子进程
-  - 在node中，可以通过`process.cwd()`访问父进程的当前工作目录
+- **在衍生子进程时，除了参数和环境变量，父进程还会默认将它的当前工作目录`cwd`传给子进程**
+  
+  - 在node中，可以通过`process.cwd()`  访问父进程的当前工作目录
+  - 父进程对传给子进程的内容有很大的可控性
+  
+  ```js
+  const subprocess = spawn('unix exec file', [...], {
+    cwd: ...
+  }) 
+  ```
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815094712718.png" alt="image-20250815094712718" style="zoom:40%;" />
 
-- 使用fs内置模块处理文件时，文件路径如果是相对路径，是相对于cwd的，需要确保路径正确
+- **使用fs模块处理文件时，当文件路径是相对路径时，是相对于cwd的**
 
 ```js
 const fs = require('fs')
 const path = require('path')
 
 const content = fs.readFileSync('./text.txt', 'utf8')  // 易发生找不到文件的错误
-const content = fs.readFileSync(path.join(__dirname, './text.txt'))  // 保证文件路径正确
+const content = fs.readFileSync(path.join(__dirname, './text.txt'))  // 利用path模块使用绝对路径
 
 // __dirname在cjs规范的模块中可以使用，esm规范需要使用其他
 ```
+
+
 
 
 
@@ -2200,21 +2218,19 @@ const content = fs.readFileSync(path.join(__dirname, './text.txt'))  // 保证�
 
 ##### ① 管道通信
 
-- 在unix系统中，每个进程会关联**三种标准I/O流**，它们是进程通信的基础管道
+- 在unix系统中，每个进程会关联**三种标准I/O流**，它们是进程通信的基础管道：**stdin、stdout、stderr**
 
-  stdin；stdout；stderr
-
-<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815105738952.png" alt="image-20250815105738952" style="zoom:40%;" />
-
-- 在bash中执行一个unix可执行文件，unix可执行文件进程的默认输入是终端-键盘，输出是终端-显示器
-
-- 进程输入可以是一个文件，进程输出写入到一个文件
+  <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815105738952.png" alt="image-20250815105738952" style="zoom:40%;" />
+  
+  - 在bash中执行一个unix可执行文件，unix可执行文件进程的默认输入是终端-键盘  ，输出是终端-显示器
+  - 进程输入可以是一个文件，进程输出可以写入到一个文件
+  
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815105411754.png" alt="image-20250815105411754" style="zoom:40%;" />
 
 
 
-- 进程输入stdin可以是其他进程的输出stdout，利用这个可实现进程通信
+- **将一个进程的输出stdout连接到另一个进程的输入stdin，可实现进程间通信**
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815105818661.png" alt="image-20250815105818661" style="zoom:40%;" />
 
@@ -2224,8 +2240,7 @@ const content = fs.readFileSync(path.join(__dirname, './text.txt'))  // 保证�
 // demo.js
 const subprocess = spawn("node", ["./subprocess.js"]);
 subprocess.stdout.on("data", (chunk) => {
-  console.log(chunk.toString("utf-8"));
-  // 在node中console.log()本质上是stdout.write()
+  console.log(chunk.toString("utf-8"));  // 在node中console.log()本质上是stdout.write()
 });
 subprocess.stderr.on("data", (chunk) => {
   console.log(chunk.toString("utf-8"));
