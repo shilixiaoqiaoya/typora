@@ -2218,8 +2218,10 @@ const content = fs.readFileSync(path.join(__dirname, './text.txt'))  // 利用pa
 
 ##### ① 管道通信
 
-- 在unix系统中，每个进程会关联**三种标准I/O流**，它们是进程通信的基础管道：**stdin、stdout、stderr**
+- **在unix系统中，每个进程会关联三种标准I/O流，它们是进程通信的基础管道：stdin、stdout、stderr**
 
+  - 数字表示： 0表示标准输入，1表示标准输出，2表示标准错误
+  
   <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250815105738952.png" alt="image-20250815105738952" style="zoom:40%;" />
   
   - 在bash中执行一个unix可执行文件，unix可执行文件进程的默认输入是终端-键盘  ，输出是终端-显示器
@@ -2254,6 +2256,7 @@ stdout.write('this is some text that i want')
 stderr.write('this is some text that i may not want')
 stdin.on('data', (chunk) => {
   console.log(chunk.toString('utf8'))
+  //  console对象默认写入标准输出和标准错误；等同于 stdout.write(`${chunk.toString('utf8')}\n`)
 })
 ```
 
@@ -2261,29 +2264,16 @@ stdin.on('data', (chunk) => {
 
 2、管道
 
-```bash
-echo 'some thing' | tr 'a-z' 'A-Z'
-```
-
-- echo进程的 `stdout` 成为了tr进程的 `stdin`
-
-
-
-3、其它相关bash命令
-
-- stdin；stdout；stderr对应的数字分别是0、1、2
-- 将node进程的stdout保存为stdout.txt文件，stderr保存为stderr.txt文件（会被保存在bash进程的当前工作目录下 
-  - 该命令是文件内容覆盖逻辑
+- **`|`：将一个进程的标准输出连接到另一个进程的标准输入，支持链式操作**
+  - 举例：echo进程的 `stdout` 成为了tr进程的 `stdin`
 
 ```bash
-node test.js 1>stdout.txt 2>stderr.txt
+echo 'some thing' | tr 'a-z' 'A-Z'    // SOME THING
 ```
 
-- 该命令是文件内容追加逻辑
 
-```js
-node test.js 1>>stdout.txt
-```
+
+3、输出重定向
 
 - 将stdin.txt文件变成node进程的stdin
 
@@ -2291,11 +2281,22 @@ node test.js 1>>stdout.txt
 node test.js 0<stdin.txt
 ```
 
+- 将node进程的标准输出保存为out.txt文件，标准错误保存为err.txt文件（会被保存在bash进程的当前工作目录下 
+  - 该命令是文件内容覆盖逻辑
+
+  ```bash
+  node test.js 1>out.txt 2>err.txt
+  ```
+
+  - 该命令是文件内容追加逻辑
+
+  ```bash
+  node test.js 1>>stdout.txt
+  ```
 
 
 
-
-###### 模拟cat命令
+4、实现cat命令
 
 ```bash
 node cat.js demo.txt
@@ -2310,12 +2311,10 @@ if(filepath) {
   const fileStream = fs.createReadStream(filepath)
   fileStream.pipe(stdout)
   fileStream.on('end', () => {
-    exit(0)
+    exit(0)  // 退出码为0，表示正常
   })
 }
-stdin.on('data', (chunk) => {
-  stdout.write(chunk.toString('utf8'))
-})
+stdin.pipe(stdout)
 ```
 
 
