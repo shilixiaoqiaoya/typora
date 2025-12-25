@@ -1758,7 +1758,9 @@ server.beforeEach((req, res, next) => {
 
 
 
-？静态资源
+
+
+
 
 ### ？疑问
 
@@ -2413,7 +2415,7 @@ const os = require('os')
 if(cluster.isPrimary) {
   console.log(`this is parent process with pid ${process.pid}`)
   const coresCount = os.availableParallelism()
-  // cpu有几个内核，衍生几个子进程
+  // cpu有几个内核，衍生几个子进程，node父进程所占cpu利用率很低，这个cpu core还可以再运行一个子进程
   for(let i=0; i<coresCount; i++) {
     const worker = cluster.fork()
     console.log(`the parent spawned a new child with pid ${worker.process.pid}`)
@@ -2429,8 +2431,10 @@ if(cluster.isPrimary) {
 }
 ```
 
-- 父进程负责自动分配流量，默认策略是将请求按顺序分配给子工作进程
-- 子进程负责处理请求
+- 父子进程共享同一个端口，父进程持有端口，接收所有流量，然后向子进程分发流量
+  - 父进程负责自动分配网卡的流量，默认策略是轮询分配，将请求按顺序分配给子工作进程
+  - 子进程接收父进程的流量，负责处理请求
+
 - **父子进程通信【基于ipc实现】**
 
 ```js
@@ -2464,7 +2468,7 @@ process.send()
 
 # video editor
 
-客户端上传视频
+#### 客户端上传视频
 
 ```js
 const uploadVideo = async (req, res) => {
@@ -2489,7 +2493,7 @@ const uploadVideo = async (req, res) => {
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250820142424994.png" alt="image-20250820142424994" style="zoom:25%;" />
 
-客户端获取资源
+#### 客户端获取资源
 
 ```js
 // 在线预览图片
@@ -2521,30 +2525,71 @@ Content-Disposition
 - http响应头，用于指示浏览器如何处理响应内容
 
   - `inline`：默认值，在页面显示内容
-
-  - `attachment`：告知浏览器将内容作为附件下载
-
-    
+- `attachment`：告知浏览器将内容作为附件下载
 
 
 
 
 
-### 视频
+#### resize任务调度
 
-容器格式（MOV）
+- 每次resize请求都会在电脑上开启一个ffmpeg进程
+- 为了避免多次请求在电脑上开启多个ffmpeg进程，出现电脑过载的情况，限制电脑上只开启一个ffmpeg进程，按队列来处理resize任务
 
-- 就像一个盒子，可以装载多种类型的媒体流
-  - 视频流，编码器 H.265
-  - 音频流，编码器AAC
-  - 字幕流，编码UTF-8
-- 不同的容器对于同一种流（如video）所支持的编码器不同
+```js
+class JobQueue {
+  constructor() {
+    this.jobs = []
+    this.currentJob = null
+  }
+  enqueue(job) {
+    this.jobs.push(job)
+		this.executeNext()
+  }
+  dequeue() {
+    return this.jobs.shift()
+  }
+  executeNext() {
+    if(this.currentJob) return
+    this.currentJob = this.dequeue()
+    if(!this.currentJob) return 
+    this.execute(this.currentJob)
+  }
+  execute(job) {
+    // ...ffmpeg logic...
+    this.currentJob = null
+    this.executeNext()
+  }
+}
+```
+
+
+
+
+
+
+
+#### 视频
+
+- 视频是图像的集合，图像是像素的集合
+
+- 容器格式（MOV）
+
+  - 就像一个盒子，可以装载多种类型的媒体流
+    - 视频流，编码器 H.265
+    - 音频流，编码器AAC
+    - 字幕流，编码UTF-8
+
+  - 不同的容器对于同一种流（如video）所支持的编码器不同
+
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250820150703269.png" alt="image-20250820150703269" style="zoom:40%;" />
 
 
 
-### ffmpeg
+
+
+#### ffmpeg
 
 - 可以对视频新增流，删除流
 - 可以更改流的编码器
@@ -2566,9 +2611,9 @@ ffprobe -v quiet -print_format json -show_format -show_streams one.mp4>probe.txt
 
 
 
+一个进程可以创建多个线程，每个线程可以在不同的CPU核心上并行执行，所以一个进程完全有可能占用全部cpu core
 
-
-每个进程有nice值，操作系统会为nice值更低的进程分配更多的cpu
+每个进程有nice值，操作系统会为nice值更低的进程分配更多的cpu资源
 
 图像处理程序 imageMagick
 
