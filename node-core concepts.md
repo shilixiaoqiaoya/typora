@@ -2635,6 +2635,9 @@ pdf处理程序 poppler
 
 ### zlib
 
+- node内置模块，提供了数据压缩和解压缩功能，
+- 有下面三种算法实现，均为无损压缩
+
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250828192143121.png" alt="image-20250828192143121" style="zoom:50%;" />
 
 ```js
@@ -2669,14 +2672,19 @@ zlib.createGunzip()
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902093444186.png" alt="image-20250902093444186" style="zoom:30%;" />
 
-- **通常文本采用无损压缩，图片、视频、音频等媒体文件采用有损压缩**
-  - 不要对已经压缩过的文件进行无损压缩，文件大小变化不会很大，是无意义操作
-- 压缩本质是寻找重复的内容，如果文件体积过小，没有重复内容，压缩后体积反而会变大，且耗费cpu计算
-  - 压缩视频：寻找多帧中长时间静止的像素点，复用第一次出现的
-  - 压缩图片：图片的可预测性越高，压缩比越大
-
-- Https + 压缩会给黑客攻击机会，所以不要对敏感数据做压缩
-
+- 通常文本采用无损压缩，图片、视频、音频等媒体文件采用有损压缩
+  
+- 不要对已压缩过的文件进行无损压缩，文件大小变化不会很大，是无意义操作
+  
+- **压缩本质是寻找重复的内容**
+  
+  - 无损压缩
+  - 有损压缩
+    - 压缩视频：寻找多帧中长时间静止的像素点，复用第一次出现的
+    - 压缩图片：图片的可预测性越高，压缩比越大
+  
+  - 如果文件体积过小，没有重复内容，压缩后体积反而会变大，且耗费cpu计算
+  
   
 
 
@@ -2696,14 +2704,14 @@ res.sendFile = async (path, mime) => {
   const fileStream = fileHandle.createReadStream()
   res.setHeader('Content-Type', mime)
   res.setHeader('Content-Encoding', 'gzip')
-  fileStream..pipe(zlib.createGzip()).pipe(res)
+  fileStream.pipe(zlib.createGzip()).pipe(res)  // 流式
 }
 
 // 【处理json路由】
 res.json = data => {
   res.setHeader('Content-Type', 'application/json')
   res.setHeader('Content-Encoding', 'gzip')
-  zlib.gzip(JSON.stringify(data), (err, buffer) => {
+  zlib.gzip(JSON.stringify(data), (err, buffer) => {  // 非流式
     if(err) return res.end()
     res.end(buffer)
   })
@@ -2712,21 +2720,31 @@ res.json = data => {
 
 
 
-- 通常有一个**Nginx代理服务来压缩响应体**
+- **Nginx代理服务来压缩响应体**
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902094259032.png" alt="image-20250902094259032" style="zoom:50%;" />
 
+```js
+if(shouluCompress) {
+  proxyResponse.setHeader('Content-Encoding', 'gzip')
+  proxyResponse.removeHeader('Content-Length')
+  proxyResponse.setHeader('Transfer-Encoding', 'chunked')
+ 
+  proxyResponse.writeHead(mainServerResponse.statusCode, mainServerResponse.headers)
+  pipeline(mainServerResponse, zlib.createGzip(), proxyResponse, err => {
+    if(err) proxyResponse.end()
+  })
+}
+```
+
+
+
+- **区别compress和minify**
+- 不要压缩敏感数据
 
 
 
 
-
-
-- 降低文件大小，可以对文件缩小和压缩
-
-  - 缩小：对图片做裁剪，会改变分辨率，不属于有损压缩
-
-  - 压缩：对图片做有损压缩，不会改变分辨率
 
 
 
