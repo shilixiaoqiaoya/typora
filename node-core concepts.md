@@ -2753,13 +2753,17 @@ if(shouluCompress) {
 
 # 线程thread
 
-### node处理请求 vs 其他语言处理请求
+### 不同语言处理请求
+
+- node，默认单线程处理所有请求
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902111337406.png" alt="image-20250902111337406" style="zoom:40%;" />
 
-
+- Java，为每一个请求创建一个线程
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902111344762.png" alt="image-20250902111344762" style="zoom:40%;" />
+
+
 
 
 
@@ -2780,10 +2784,9 @@ if(shouluCompress) {
 
 
 
-
+- unix系统，一个cpu core的使用率最大是100%
 
 - 当一个进程有两个线程且线程分别在两个cpu核心上运行时，此时该进程的cpu利用率是200%
-- unix上，一个cpu core的使用率是100%
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902144843524.png" alt="image-20250902144843524" style="zoom:50%;" />
 
@@ -2791,9 +2794,12 @@ if(shouluCompress) {
 
 
 
+
+
 ### worker_threads
 
-- node衍生新线程
+- 衍生新线程
+- 创建线程比创建进程的开销小得多；线程之间可以共享内存
 
 ```js
 const { Worker } = require('worker_threads')
@@ -2808,31 +2814,31 @@ console.log(a)  // 1000
 
 
 
-- `while(true) {}`会阻塞主线程
+- `while(true) {}`会阻塞主线程，在一个线程中，程序计数器无法移动
+  - **！！！不应该有阻塞主线程的操作！！！**
+
 
 ```js
-// 不衍生线程
+// 不衍生线程的情况
+	// 主线程
 setTimeout(() => {
-  fs.writeFile('./text.txt', 'this is some text', (err) => {
-    if(err) return console.log(err)
-    console.log('file created successfully')
-  })
+  ...     				// 这段代码不会被执行
 }, 3000)
-while(true) {}
+while(true) {} 
 ```
 
+
+
 ```js
-// 衍生线程
+// 衍生线程的情况
+	// 主线程
 const { Worker } = require('worker_threads')
 const thread = new Worker('./calc.js')  // 该文件执行在另一个线程中
 while(true) {}
 
 // calc.js
 setTimeout(() => {
-  fs.writeFile('./text.txt', 'this is some text', (err) => {
-    if(err) return console.log(err)
-    console.log('file created successfully')
-  })
+	...             // 这段代码会被执行
 }, 3000)
 ```
 
