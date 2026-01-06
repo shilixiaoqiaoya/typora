@@ -2667,25 +2667,74 @@ zlib.createGunzip()
 - 无损压缩：减少比特数而不丢失任何信息，可以复原到初始文件
   - Png
   - 压缩为zip格式
-- 有损压缩：会丢失文件信息，会将人眼注意不到的细节丢失
+- **有损压缩：会丢失文件信息，会将人眼注意不到的细节丢失。可以理解为「消除冗余信息+无损压缩」**
   - jpeg、mp3、aac、H.264
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250902093444186.png" alt="image-20250902093444186" style="zoom:30%;" />
 
 - 通常文本采用无损压缩，图片、视频、音频等媒体文件采用有损压缩
-  
 - 不要对已压缩过的文件进行无损压缩，文件大小变化不会很大，是无意义操作
-  
 - **压缩本质是寻找重复的内容**
-  
   - 无损压缩
   - 有损压缩
     - 压缩视频：寻找多帧中长时间静止的像素点，复用第一次出现的
     - 压缩图片：图片的可预测性越高，压缩比越大
   
   - 如果文件体积过小，没有重复内容，压缩后体积反而会变大，且耗费cpu计算
-  
-  
+
+
+
+
+
+
+
+### 音频
+
+- 为了方便传输和存储，需要对原始音频数据进行编码
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20260105170053249.png" alt="image-20260105170053249" style="zoom:25%;" />
+
+<img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20260105171323210.png" alt="image-20260105171323210" style="zoom:25%;" />
+
+- 直接从麦克风等设备采集到的原始是**模拟信号**
+- **pcm是一种将模拟信号转换为数字信号的编码方式【模数转换】**。数字信号可以存储在计算机中或进行后续处理。音质最好，但数据量很大，不适合存储或传输
+- **aac/MP3 压缩音频的编码格式（有损压缩**）
+- MP4/flv 多媒体容器格式，它们本身不负责编码，而是像一个盒子，将压缩后的音频流和视频流等组合在一起，并添加统一的文件头、时间戳等信息，形成一个完整的媒体文件
+
+
+
+- 常见的音频编码器有opus、aac、ogg、mp3
+  - 压缩效果opus最好，是webrtc默认的音频编码器，低延迟，高音质
+
+
+
+
+
+
+
+### 视频
+
+vp8和h264都是编码标准，编码本质上是压缩操作，减少视频数据量（有损压缩，画质损失但人眼不易察觉）
+webrtc默认编码格式是vp8，因为其开源特性避免专利纠纷
+h264压缩效率高，相同画质下视频码率更低
+
+
+
+Webrtc编码是推流端  解码是拉流端
+通过改变推流端的编码方式(H.264编码)，进而影响拉流端的解码方式走硬解
+拉流端硬件解码由GPU或专用芯片处理，CPU占用率极低，特别适合移动设备，解码速度快，延迟低，播放更流畅
+
+
+
+
+视频码率：单位时间内传输音视频的数据量，码率越高，画质越好，网络传输需要的带宽越大
+
+- 视频码率 = 分辨率 * 帧率 * 每像素比特数
+  - 分辨率决定画面清晰度（像素数量）
+  - 帧率决定画面流畅度（每秒帧数）
+  - 码率固定时，需要分辨率和帧率间权衡
+
+
 
 
 
@@ -2865,7 +2914,7 @@ console.log(workerData)  // xxx
 
 #### MessageChannel()
 
-- `MessageChannel()`方法生成的两个port可以相互通信
+- **`MessageChannel()`方法生成的两个port可以相互通信**
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250904113421421.png" alt="image-20250904113421421" style="zoom:60%;" />
 
@@ -2888,7 +2937,7 @@ port2.on('message', (msg) => {
 
 #### 线程通信
 
-- 将其中一个port以workerData传给另一个线程，就可以实现线程之间的通信
+- **将其中一个port以workerData传给另一个线程，就可以实现线程之间的通信**
 
 <img src="https://cdn.jsdelivr.net/gh/shilixiaoqiaoya/pictures@master/image-20250904113852095.png" alt="image-20250904113852095" style="zoom:50%;" />
 
